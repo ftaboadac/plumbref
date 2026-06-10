@@ -3,14 +3,14 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from groundcheck.budgets import (
+from plumbref.budgets import (
     BudgetExceededError,
     ensure_can_open_file,
     ensure_can_read_snippet,
 )
-from groundcheck.config import GroundcheckConfig
-from groundcheck.models import EvidenceSnippet, SessionState
-from groundcheck.privacy import redact_text
+from plumbref.config import PlumbrefConfig
+from plumbref.models import EvidenceSnippet, SessionState
+from plumbref.privacy import redact_text
 
 
 class EvidenceReadError(ValueError):
@@ -20,7 +20,7 @@ class EvidenceReadError(ValueError):
 def read_evidence(
     *,
     state: SessionState,
-    config: GroundcheckConfig,
+    config: PlumbrefConfig,
     claim_id: str,
     file: str,
     start_line: int,

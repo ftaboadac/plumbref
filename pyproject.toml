@@ -3,9 +3,9 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-name = "groundcheck"
+name = "plumbref"
 version = "0.1.0"
-description = "Source-evidence verification harness for AI coding agents."
+description = "Plumbref verifies AI coding-agent claims against source references."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
@@ -39,12 +39,12 @@ test = [
 ]
 
 [project.scripts]
-groundcheck = "groundcheck.cli:app"
+plumbref = "plumbref.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/facundotaboada/groundcheck"
-Repository = "https://github.com/facundotaboada/groundcheck"
-Issues = "https://github.com/facundotaboada/groundcheck/issues"
+Homepage = "https://github.com/facundotaboada/plumbref"
+Repository = "https://github.com/facundotaboada/plumbref"
+Issues = "https://github.com/facundotaboada/plumbref/issues"
 
 [tool.pytest.ini_options]
 python_files = "test_*.py"

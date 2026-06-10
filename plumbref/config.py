@@ -6,14 +6,14 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from groundcheck.models import BudgetMode, OutputMode
+from plumbref.models import BudgetMode, OutputMode
 
 
 class ConfigLoadError(ValueError):
     pass
 
 
-class GroundcheckConfig(BaseModel):
+class PlumbrefConfig(BaseModel):
     ignored_paths: list[str] = Field(
         default_factory=lambda: [
             ".git",
@@ -24,8 +24,8 @@ class GroundcheckConfig(BaseModel):
         ],
     )
     docs_paths: list[str] = Field(default_factory=lambda: ["docs"])
-    cache_path: Path = Path(".cache/groundcheck")
-    report_path: Path = Path(".cache/groundcheck/reports")
+    cache_path: Path = Path(".cache/plumbref")
+    report_path: Path = Path(".cache/plumbref/reports")
     privacy_patterns: list[str] = Field(
         default_factory=lambda: [
             r"AKIA[0-9A-Z]{16}",
@@ -51,7 +51,7 @@ class GroundcheckConfig(BaseModel):
         return values
 
 
-def load_config(repo_root: Path, config_path: Path | None = None) -> GroundcheckConfig:
+def load_config(repo_root: Path, config_path: Path | None = None) -> PlumbrefConfig:
     resolved_repo_root = repo_root.expanduser().resolve()
     discovered = discover_config_path(resolved_repo_root, config_path)
     payload = load_config_payload(discovered) if discovered else {}
@@ -69,9 +69,9 @@ def discover_config_path(repo_root: Path, explicit_config: Path | None = None) -
         return path
 
     candidates = [
-        repo_root / ".groundcheck.local.toml",
-        repo_root / ".groundcheck.toml",
-        Path.home() / ".config" / "groundcheck" / "config.toml",
+        repo_root / ".plumbref.local.toml",
+        repo_root / ".plumbref.toml",
+        Path.home() / ".config" / "plumbref" / "config.toml",
     ]
     return next((path for path in candidates if path.is_file()), None)
 
@@ -83,7 +83,7 @@ def load_config_payload(path: Path) -> dict[str, object]:
     except tomllib.TOMLDecodeError as exc:
         raise ConfigLoadError(f"could not parse config file {path}: {exc}") from exc
 
-    payload = loaded.get("groundcheck", loaded)
+    payload = loaded.get("plumbref", loaded)
     if not isinstance(payload, dict):
         raise ConfigLoadError(f"config file {path} must contain a TOML table")
     return normalize_config_payload(payload)
@@ -96,11 +96,11 @@ def normalize_config_payload(payload: dict[str, object]) -> dict[str, object]:
     return normalized
 
 
-def build_config(payload: dict[str, object]) -> GroundcheckConfig:
+def build_config(payload: dict[str, object]) -> PlumbrefConfig:
     try:
-        return GroundcheckConfig.model_validate(payload)
+        return PlumbrefConfig.model_validate(payload)
     except ValidationError as exc:
-        raise ConfigLoadError(f"invalid Groundcheck config: {exc}") from exc
+        raise ConfigLoadError(f"invalid Plumbref config: {exc}") from exc
 
 
 def resolve_config_path(repo_root: Path, path: Path) -> Path:

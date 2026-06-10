@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from groundcheck.budgets import BudgetExceededError, budget_for_mode, ensure_can_search
-from groundcheck.models import BudgetMode, ClaimWorkItem
+from plumbref.budgets import BudgetExceededError, budget_for_mode, ensure_can_search
+from plumbref.models import BudgetMode, ClaimWorkItem
 
 
 def test_budget_modes_scale_limits() -> None:

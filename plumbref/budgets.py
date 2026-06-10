@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from groundcheck.models import BudgetMode, ClaimWorkItem, SearchBudget
+from plumbref.models import BudgetMode, ClaimWorkItem, SearchBudget
 
 BUDGETS: dict[BudgetMode, SearchBudget] = {
     BudgetMode.FAST: SearchBudget(

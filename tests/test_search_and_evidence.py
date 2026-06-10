@@ -4,18 +4,18 @@ from pathlib import Path
 
 import pytest
 
-from groundcheck.config import load_config
-from groundcheck.evidence import EvidenceReadError, read_evidence
-from groundcheck.models import BudgetMode, ClaimWorkItem
-from groundcheck.reports import render_report
-from groundcheck.search import search_repo
-from groundcheck.sessions import GroundcheckHarness
+from plumbref.config import load_config
+from plumbref.evidence import EvidenceReadError, read_evidence
+from plumbref.models import BudgetMode, ClaimWorkItem
+from plumbref.reports import render_report
+from plumbref.search import search_repo
+from plumbref.sessions import PlumbrefHarness
 
 
 def test_search_repo_records_trace() -> None:
     """Repo search records matched files and increments search usage."""
     repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
-    harness = GroundcheckHarness()
+    harness = PlumbrefHarness()
     state = harness.start_session(
         repo_root=repo_root,
         question="What happens if provider_id is missing?",
@@ -38,7 +38,7 @@ def test_search_repo_records_trace() -> None:
 def test_report_includes_search_trace_matched_files(tmp_path: Path) -> None:
     """Reports show matched files so searches are inspectable."""
     repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
-    harness = GroundcheckHarness()
+    harness = PlumbrefHarness()
     state = harness.start_session(
         repo_root=repo_root,
         question="What happens if provider_id is missing?",
@@ -62,7 +62,7 @@ def test_report_includes_search_trace_matched_files(tmp_path: Path) -> None:
 def test_search_repo_enforces_reference_depth_budget() -> None:
     """Repo search rejects reference following beyond the claim budget."""
     repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
-    harness = GroundcheckHarness()
+    harness = PlumbrefHarness()
     state = harness.start_session(
         repo_root=repo_root,
         question="What happens if provider_id is missing?",
@@ -87,7 +87,7 @@ def test_search_repo_enforces_reference_depth_budget() -> None:
 def test_read_evidence_returns_redacted_line_snippet() -> None:
     """Evidence reads return stable line numbers and redacted excerpts."""
     repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
-    harness = GroundcheckHarness()
+    harness = PlumbrefHarness()
     state = harness.start_session(
         repo_root=repo_root,
         question="What happens if provider_id is missing?",
@@ -115,7 +115,7 @@ def test_read_evidence_returns_redacted_line_snippet() -> None:
 def test_read_evidence_rejects_paths_outside_repo() -> None:
     """Evidence reads cannot escape the repository root."""
     repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
-    harness = GroundcheckHarness()
+    harness = PlumbrefHarness()
     state = harness.start_session(
         repo_root=repo_root,
         question="Can it escape?",

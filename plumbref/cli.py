@@ -8,27 +8,27 @@ from typing import Annotated
 import typer
 from pydantic import ValidationError
 
-from groundcheck.change_context import ChangeContextError, build_change_context
-from groundcheck.config import ConfigLoadError
-from groundcheck.models import (
+from plumbref.change_context import ChangeContextError, build_change_context
+from plumbref.config import ConfigLoadError
+from plumbref.models import (
     BudgetMode,
     ChangeSource,
     ClaimWorkItem,
     OutputMode,
     VerificationMode,
 )
-from groundcheck.reports import render_report
-from groundcheck.sessions import HARNESS
+from plumbref.reports import render_report
+from plumbref.sessions import HARNESS
 
-app = typer.Typer(help="Groundcheck repo-local verification tools.")
+app = typer.Typer(help="Plumbref verifies AI coding-agent claims against source references.")
 
 
 @app.command()
 def mcp(
     repo_root: Annotated[Path | None, typer.Option(help="Repository root to verify against.")] = None,
-    config: Annotated[Path | None, typer.Option(help="Path to a Groundcheck TOML config file.")] = None,
+    config: Annotated[Path | None, typer.Option(help="Path to a Plumbref TOML config file.")] = None,
 ) -> None:
-    from groundcheck.mcp_server import run_mcp_server
+    from plumbref.mcp_server import run_mcp_server
 
     run_mcp_server(repo_root=repo_root or Path.cwd(), config_path=config)
 
@@ -50,7 +50,7 @@ def verify(
     ] = None,
     base_ref: Annotated[str | None, typer.Option(help="Base ref for change_impact mode.")] = None,
     compare_ref: Annotated[str | None, typer.Option(help="Compare ref for change_impact mode.")] = None,
-    config: Annotated[Path | None, typer.Option(help="Path to a Groundcheck TOML config file.")] = None,
+    config: Annotated[Path | None, typer.Option(help="Path to a Plumbref TOML config file.")] = None,
     budget_mode: Annotated[BudgetMode | None, typer.Option(help="Verification budget mode.")] = None,
     output_mode: Annotated[list[OutputMode] | None, typer.Option(help="Output mode.")] = None,
 ) -> None:
@@ -89,13 +89,13 @@ def verify(
         except JSONDecodeError as exc:
             raise typer.BadParameter(f"{claims} is not valid JSON: {exc.msg}") from exc
         except ValidationError as exc:
-            raise typer.BadParameter(f"{claims} does not match the Groundcheck claim schema: {exc}") from exc
+            raise typer.BadParameter(f"{claims} does not match the Plumbref claim schema: {exc}") from exc
 
     config = HARNESS.get_config(state.session.id)
     report = render_report(state=state, config=config)
     if not state.claims:
         typer.echo(
-            "Groundcheck session created, but no claims were supplied. "
+            "Plumbref session created, but no claims were supplied. "
             "This MVP does not extract claims automatically; use MCP for the full workflow "
             "or pass --claims /path/to/claims.json."
         )

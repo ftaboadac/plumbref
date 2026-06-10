@@ -1,5 +1,5 @@
 from __future__ import annotations
 
-from groundcheck.cli import app
+from plumbref.cli import app
 
 app()

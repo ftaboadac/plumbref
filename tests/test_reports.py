@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from groundcheck.config import load_config
-from groundcheck.evidence import read_evidence
-from groundcheck.judgments import record_judgment
-from groundcheck.models import (
+from plumbref.config import load_config
+from plumbref.evidence import read_evidence
+from plumbref.judgments import record_judgment
+from plumbref.models import (
     BudgetMode,
     ChangeContext,
     ChangedSymbol,
@@ -17,14 +17,14 @@ from groundcheck.models import (
     RiskLevel,
     VerificationMode,
 )
-from groundcheck.reports import render_report
-from groundcheck.sessions import GroundcheckHarness
+from plumbref.reports import render_report
+from plumbref.sessions import PlumbrefHarness
 
 
 def test_report_renders_markdown_and_json(tmp_path: Path) -> None:
     """Reports include verdict, claims, evidence, and support-safe summary."""
     repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
-    harness = GroundcheckHarness()
+    harness = PlumbrefHarness()
     state = harness.start_session(
         repo_root=repo_root,
         question="What happens if provider_id is missing?",
@@ -69,7 +69,7 @@ def test_report_renders_markdown_and_json(tmp_path: Path) -> None:
 def test_json_report_redacts_sensitive_text(tmp_path: Path) -> None:
     """JSON reports redact sensitive claim and judgment text."""
     repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
-    harness = GroundcheckHarness()
+    harness = PlumbrefHarness()
     state = harness.start_session(
         repo_root=repo_root,
         question="Is the token exposed?",
@@ -96,7 +96,7 @@ def test_json_report_redacts_sensitive_text(tmp_path: Path) -> None:
 def test_scenario_report_labels_predicted_outcomes(tmp_path: Path) -> None:
     """Scenario reports show scenario context and a safe conclusion."""
     repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
-    harness = GroundcheckHarness()
+    harness = PlumbrefHarness()
     state = harness.start_session(
         repo_root=repo_root,
         question="What happens if provider_id is missing?",
@@ -176,7 +176,7 @@ def test_scenario_report_labels_predicted_outcomes(tmp_path: Path) -> None:
 def test_change_impact_report_renders_scope_and_safe_statement(tmp_path: Path) -> None:
     """Change impact reports show scope, impact claims, and safer wording."""
     repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
-    harness = GroundcheckHarness()
+    harness = PlumbrefHarness()
     state = harness.start_session(
         repo_root=repo_root,
         question="What does this change affect?",

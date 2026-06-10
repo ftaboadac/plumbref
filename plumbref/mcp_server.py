@@ -3,10 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from groundcheck.change_context import build_change_context
-from groundcheck.evidence import read_evidence
-from groundcheck.judgments import record_judgment
-from groundcheck.models import (
+from plumbref.change_context import build_change_context
+from plumbref.evidence import read_evidence
+from plumbref.judgments import record_judgment
+from plumbref.models import (
     BudgetMode,
     ChangedSymbol,
     ChangeSource,
@@ -15,21 +15,21 @@ from groundcheck.models import (
     OutputMode,
     VerificationMode,
 )
-from groundcheck.reports import render_report
-from groundcheck.search import search_repo
-from groundcheck.sessions import HARNESS
+from plumbref.reports import render_report
+from plumbref.search import search_repo
+from plumbref.sessions import HARNESS
 
 
 def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
     try:
         from mcp.server.fastmcp import FastMCP
     except ImportError as exc:
-        raise RuntimeError("The MCP Python package is required. Install groundcheck with the mcp dependency.") from exc
+        raise RuntimeError("The MCP Python package is required. Install plumbref with the mcp dependency.") from exc
 
-    server = FastMCP("groundcheck")
+    server = FastMCP("plumbref")
 
     @server.tool()
-    def groundcheck_start(
+    def plumbref_start(
         question: str,
         answer: str,
         mode: str = "explanation",
@@ -52,7 +52,7 @@ def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
         return state.model_dump(mode="json")
 
     @server.tool()
-    def groundcheck_record_change_context(
+    def plumbref_record_change_context(
         session_id: str | None = None,
         source: str = "worktree",
         changed_files: list[str] | None = None,
@@ -78,11 +78,11 @@ def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
         return context.model_dump(mode="json")
 
     @server.tool()
-    def groundcheck_extract_claims(
+    def plumbref_extract_claims(
         claims: list[dict[str, Any]],
         session_id: str | None = None,
     ) -> dict[str, Any]:
-        """Store atomic claims extracted by the agent. Groundcheck does not use an LLM to extract claims."""
+        """Store atomic claims extracted by the agent. Plumbref does not use an LLM to extract claims."""
         stored = HARNESS.store_claims(
             [ClaimWorkItem.model_validate(claim) for claim in claims],
             session_id=session_id,
@@ -90,7 +90,7 @@ def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
         return {"claims": [claim.model_dump(mode="json") for claim in stored]}
 
     @server.tool()
-    def groundcheck_search_repo(
+    def plumbref_search_repo(
         claim_id: str,
         query: str,
         session_id: str | None = None,
@@ -111,7 +111,7 @@ def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
         return trace.model_dump(mode="json")
 
     @server.tool()
-    def groundcheck_read_evidence(
+    def plumbref_read_evidence(
         claim_id: str,
         file: str,
         start_line: int,
@@ -134,7 +134,7 @@ def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
         return snippet.model_dump(mode="json")
 
     @server.tool()
-    def groundcheck_record_judgment(
+    def plumbref_record_judgment(
         claim_id: str,
         status: str,
         session_id: str | None = None,
@@ -159,7 +159,7 @@ def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
         return judgment.model_dump(mode="json")
 
     @server.tool()
-    def groundcheck_render_report(
+    def plumbref_render_report(
         session_id: str | None = None,
         output_modes: list[str] | None = None,
     ) -> dict[str, Any]:

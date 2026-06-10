@@ -4,22 +4,22 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from groundcheck.cache import write_json
-from groundcheck.config import GroundcheckConfig
-from groundcheck.models import (
+from plumbref.cache import write_json
+from plumbref.config import PlumbrefConfig
+from plumbref.models import (
     ClaimStatus,
     OutputMode,
     RenderedReport,
     SessionState,
     VerificationMode,
 )
-from groundcheck.privacy import redact_text
+from plumbref.privacy import redact_text
 
 
 def render_report(
     *,
     state: SessionState,
-    config: GroundcheckConfig,
+    config: PlumbrefConfig,
     output_modes: list[OutputMode] | None = None,
     write_files: bool = True,
 ) -> RenderedReport:
@@ -47,7 +47,7 @@ def render_report(
     )
 
 
-def build_json_report(state: SessionState, config: GroundcheckConfig) -> dict[str, Any]:
+def build_json_report(state: SessionState, config: PlumbrefConfig) -> dict[str, Any]:
     status_counts = Counter(claim.status for claim in state.claims.values())
     verdict = overall_verdict(status_counts)
     payload = {
@@ -77,11 +77,11 @@ def build_json_report(state: SessionState, config: GroundcheckConfig) -> dict[st
 def build_markdown_report(
     state: SessionState,
     modes: list[OutputMode],
-    config: GroundcheckConfig,
+    config: PlumbrefConfig,
 ) -> str:
     payload = build_json_report(state, config)
     lines = [
-        "# Groundcheck Report",
+        "# Plumbref Report",
         "",
         f"Verdict: {payload['verdict']}",
         f"Verification mode: {state.session.mode.value}",
@@ -221,7 +221,7 @@ def support_summary(state: SessionState) -> str:
     )
 
 
-def format_change_scope(state: SessionState, config: GroundcheckConfig) -> list[str]:
+def format_change_scope(state: SessionState, config: PlumbrefConfig) -> list[str]:
     context = state.session.change_context
     if not context:
         return ["No change context recorded."]
@@ -266,7 +266,7 @@ def format_change_scope(state: SessionState, config: GroundcheckConfig) -> list[
     return lines
 
 
-def change_impact_uncertain_areas(state: SessionState, config: GroundcheckConfig) -> list[str]:
+def change_impact_uncertain_areas(state: SessionState, config: PlumbrefConfig) -> list[str]:
     risky_statuses = {
         ClaimStatus.UNCERTAIN,
         ClaimStatus.NOT_FOUND,
@@ -286,7 +286,7 @@ def change_impact_uncertain_areas(state: SessionState, config: GroundcheckConfig
     return lines
 
 
-def change_impact_safe_statement(state: SessionState, config: GroundcheckConfig) -> list[str]:
+def change_impact_safe_statement(state: SessionState, config: PlumbrefConfig) -> list[str]:
     if not state.claims:
         return ["No impact claims were verified."]
 
@@ -322,7 +322,7 @@ def change_impact_safe_statement(state: SessionState, config: GroundcheckConfig)
     return lines
 
 
-def scenario_safe_conclusion(state: SessionState, config: GroundcheckConfig) -> list[str]:
+def scenario_safe_conclusion(state: SessionState, config: PlumbrefConfig) -> list[str]:
     if not state.claims:
         return ["No predicted outcomes were verified."]
 
@@ -359,7 +359,7 @@ def scenario_safe_conclusion(state: SessionState, config: GroundcheckConfig) -> 
     return lines
 
 
-def safe_outcome_text(claim: Any, config: GroundcheckConfig) -> str:
+def safe_outcome_text(claim: Any, config: PlumbrefConfig) -> str:
     text = claim.expected_outcome or claim.text
     return redact_text(text, config.privacy_patterns)
 

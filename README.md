@@ -1,8 +1,6 @@
-# Groundcheck
+# Plumbref
 
-Groundcheck is a source-evidence verification harness for AI coding agents.
-Agents use it to check whether their claims about a codebase are supported by
-local source evidence.
+Plumbref verifies AI coding-agent claims against source references.
 
 It exposes:
 
@@ -10,13 +8,13 @@ It exposes:
 - a CLI for local smoke tests and report rendering
 - deterministic Markdown and JSON reports
 
-Groundcheck does not call a model API. It does not need an API key, database,
+Plumbref does not call a model API. It does not need an API key, database,
 vector store, hosted service, or UI.
 
 ## Why A Harness
 
 Prompts and skills can ask an agent to be careful, but they do not preserve a
-structured verification trail. Groundcheck gives the agent a small protocol:
+structured verification trail. Plumbref gives the agent a small protocol:
 
 1. start a verification session
 2. store atomic claims or predicted outcomes
@@ -25,7 +23,7 @@ structured verification trail. Groundcheck gives the agent a small protocol:
 5. record conservative judgments
 6. render a report
 
-The agent still extracts claims and reasons over evidence. Groundcheck supplies
+The agent still extracts claims and reasons over evidence. Plumbref supplies
 the source-grounded workflow, budgets, redaction, status semantics, and report
 artifacts.
 
@@ -34,13 +32,13 @@ artifacts.
 Install the latest published package when it is available:
 
 ```shell
-pipx install groundcheck
+pipx install plumbref
 ```
 
 Beta install from GitHub:
 
 ```shell
-pipx install git+https://github.com/facundotaboada/groundcheck.git
+pipx install git+https://github.com/facundotaboada/plumbref.git
 ```
 
 For local development:
@@ -51,7 +49,7 @@ python -m venv .venv
 python -m pip install -e ".[dev]"
 ```
 
-Groundcheck uses `rg`/ripgrep for repository search:
+Plumbref uses `rg`/ripgrep for repository search:
 
 ```shell
 rg --version
@@ -62,13 +60,13 @@ rg --version
 Run the MCP server against a repository:
 
 ```shell
-groundcheck mcp --repo-root /path/to/repo
+plumbref mcp --repo-root /path/to/repo
 ```
 
 Run a local verification smoke test:
 
 ```shell
-groundcheck verify \
+plumbref verify \
   --repo-root /path/to/repo \
   --question "What does this scheduled job do?" \
   --answer answer.md
@@ -77,9 +75,9 @@ groundcheck verify \
 Use a config file:
 
 ```shell
-groundcheck verify \
+plumbref verify \
   --repo-root /path/to/repo \
-  --config /path/to/groundcheck.toml \
+  --config /path/to/plumbref.toml \
   --question "What happens if provider_id is missing?" \
   --answer answer.md
 ```
@@ -87,7 +85,7 @@ groundcheck verify \
 Explicit modes are available:
 
 ```shell
-groundcheck verify \
+plumbref verify \
   --repo-root /path/to/repo \
   --mode scenario \
   --scenario "run_scheduled_job receives provider_id=None" \
@@ -101,7 +99,7 @@ groundcheck verify \
 For change-impact checks:
 
 ```shell
-groundcheck verify \
+plumbref verify \
   --repo-root /path/to/repo \
   --mode change_impact \
   --changed-file app/reports.py \
@@ -117,9 +115,9 @@ pass a JSON claims file with `--claims`.
 Config discovery order:
 
 1. explicit `--config`
-2. `<repo-root>/.groundcheck.local.toml`
-3. `<repo-root>/.groundcheck.toml`
-4. `~/.config/groundcheck/config.toml`
+2. `<repo-root>/.plumbref.local.toml`
+3. `<repo-root>/.plumbref.toml`
+4. `~/.config/plumbref/config.toml`
 
 Example:
 
@@ -144,10 +142,10 @@ default_output_modes = ["engineer", "json"]
 
 ## MCP Setup
 
-Groundcheck is a stdio MCP server. Any MCP-capable client can launch it with:
+Plumbref is a stdio MCP server. Any MCP-capable client can launch it with:
 
 ```shell
-groundcheck mcp --repo-root /path/to/repo
+plumbref mcp --repo-root /path/to/repo
 ```
 
 Cursor-style MCP config:
@@ -155,8 +153,8 @@ Cursor-style MCP config:
 ```json
 {
   "mcpServers": {
-    "groundcheck": {
-      "command": "groundcheck",
+    "plumbref": {
+      "command": "plumbref",
       "args": ["mcp", "--repo-root", "/path/to/repo"]
     }
   }
@@ -168,14 +166,14 @@ With explicit config:
 ```json
 {
   "mcpServers": {
-    "groundcheck": {
-      "command": "groundcheck",
+    "plumbref": {
+      "command": "plumbref",
       "args": [
         "mcp",
         "--repo-root",
         "/path/to/repo",
         "--config",
-        "/path/to/repo/.groundcheck.toml"
+        "/path/to/repo/.plumbref.toml"
       ]
     }
   }
@@ -237,7 +235,7 @@ Claim:
 }
 ```
 
-Groundcheck should mark it `supported` only when the agent cites source lines
+Plumbref should mark it `supported` only when the agent cites source lines
 that show the queued path and has checked for relevant contradictions.
 
 ## Scenario Mode
@@ -333,7 +331,7 @@ require broader contradiction searches before they can be treated as supported.
 By default, reports are written under:
 
 ```text
-.cache/groundcheck/reports/
+.cache/plumbref/reports/
 ```
 
 Generated reports and caches are ignored by the project `.gitignore`.
@@ -354,12 +352,12 @@ ruff check .
 
 ## Limitations
 
-- Groundcheck does not extract claims by itself.
-- Groundcheck does not decide truth with an LLM.
-- Groundcheck cannot verify claims that require production data, private
+- Plumbref does not extract claims by itself.
+- Plumbref does not decide truth with an LLM.
+- Plumbref cannot verify claims that require production data, private
   services, or external systems unless the relevant evidence exists in the
   local repository.
-- Groundcheck search is lexical and repo-local.
+- Plumbref search is lexical and repo-local.
 - `supported` means supported by the cited source evidence, not globally true
   for every deployment or runtime state.
 

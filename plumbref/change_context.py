@@ -3,7 +3,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from groundcheck.models import ChangeContext, ChangedSymbol, ChangeSource
+from plumbref.models import ChangeContext, ChangedSymbol, ChangeSource
 
 MAX_DIFF_SUMMARY_CHARS = 12000
 

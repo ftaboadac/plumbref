@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from groundcheck.budgets import budget_for_mode, ensure_claim_capacity
-from groundcheck.config import GroundcheckConfig, load_config
-from groundcheck.models import (
+from plumbref.budgets import budget_for_mode, ensure_claim_capacity
+from plumbref.config import PlumbrefConfig, load_config
+from plumbref.models import (
     BudgetMode,
     ChangeContext,
     ClaimWorkItem,
@@ -15,10 +15,10 @@ from groundcheck.models import (
 )
 
 
-class GroundcheckHarness:
+class PlumbrefHarness:
     def __init__(self) -> None:
         self._sessions: dict[str, SessionState] = {}
-        self._configs: dict[str, GroundcheckConfig] = {}
+        self._configs: dict[str, PlumbrefConfig] = {}
         self.active_session_id: str | None = None
 
     def start_session(
@@ -57,10 +57,10 @@ class GroundcheckHarness:
     def get_state(self, session_id: str | None = None) -> SessionState:
         resolved_session_id = session_id or self.active_session_id
         if not resolved_session_id:
-            raise KeyError("no active Groundcheck session")
+            raise KeyError("no active Plumbref session")
         return self._sessions[resolved_session_id]
 
-    def get_config(self, session_id: str | None = None) -> GroundcheckConfig:
+    def get_config(self, session_id: str | None = None) -> PlumbrefConfig:
         state = self.get_state(session_id)
         return self._configs[state.session.id]
 
@@ -89,4 +89,4 @@ class GroundcheckHarness:
         return change_context
 
 
-HARNESS = GroundcheckHarness()
+HARNESS = PlumbrefHarness()

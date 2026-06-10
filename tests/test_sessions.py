@@ -4,14 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from groundcheck.models import BudgetMode
-from groundcheck.sessions import GroundcheckHarness
+from plumbref.models import BudgetMode
+from plumbref.sessions import PlumbrefHarness
 
 
 def test_start_session_replaces_previous_session() -> None:
-    """Groundcheck keeps only one active verification session."""
+    """Plumbref keeps only one active verification session."""
     repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
-    harness = GroundcheckHarness()
+    harness = PlumbrefHarness()
     first = harness.start_session(
         repo_root=repo_root,
         question="First?",

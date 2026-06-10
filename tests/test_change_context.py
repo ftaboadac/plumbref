@@ -5,12 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from groundcheck.change_context import (
+from plumbref.change_context import (
     ChangeContextError,
     build_change_context,
     parse_diff_changed_files,
 )
-from groundcheck.models import ChangedSymbol, ChangeSource
+from plumbref.models import ChangedSymbol, ChangeSource
 
 
 def test_change_context_accepts_explicit_changed_files(tmp_path: Path) -> None:
@@ -49,8 +49,8 @@ def test_changed_files_must_stay_inside_repo(tmp_path: Path) -> None:
 def test_git_diff_target_captures_changed_files(tmp_path: Path) -> None:
     """Git diff target captures changed files from local refs."""
     run_git(tmp_path, ["init", "-b", "main"])
-    run_git(tmp_path, ["config", "user.email", "groundcheck@example.test"])
-    run_git(tmp_path, ["config", "user.name", "Groundcheck Test"])
+    run_git(tmp_path, ["config", "user.email", "plumbref@example.test"])
+    run_git(tmp_path, ["config", "user.name", "Plumbref Test"])
     (tmp_path / "app.py").write_text("value = 1\n", encoding="utf-8")
     run_git(tmp_path, ["add", "app.py"])
     run_git(tmp_path, ["commit", "-m", "initial"])

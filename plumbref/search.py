@@ -4,20 +4,20 @@ import subprocess
 import time
 from pathlib import Path
 
-from groundcheck.budgets import (
+from plumbref.budgets import (
     BudgetExceededError,
     ensure_can_search,
     ensure_reference_depth,
 )
-from groundcheck.config import GroundcheckConfig
-from groundcheck.models import SearchMatch, SearchTrace, SessionState
-from groundcheck.privacy import redact_text
+from plumbref.config import PlumbrefConfig
+from plumbref.models import SearchMatch, SearchTrace, SessionState
+from plumbref.privacy import redact_text
 
 
 def search_repo(
     *,
     state: SessionState,
-    config: GroundcheckConfig,
+    config: PlumbrefConfig,
     claim_id: str,
     query: str,
     max_results: int = 20,
@@ -74,7 +74,7 @@ def search_repo(
 
 def build_rg_command(
     repo_root: Path,
-    config: GroundcheckConfig,
+    config: PlumbrefConfig,
     query: str,
     max_results: int,
 ) -> list[str]:
@@ -102,7 +102,7 @@ def relative_match_path(repo_root: Path, file_path: str) -> str:
         return file_path
 
 
-def parse_rg_line(repo_root: Path, line: str, config: GroundcheckConfig) -> SearchMatch | None:
+def parse_rg_line(repo_root: Path, line: str, config: PlumbrefConfig) -> SearchMatch | None:
     file_path, line_number, preview = split_rg_line(line)
     if not file_path or not line_number:
         return None

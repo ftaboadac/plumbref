@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from groundcheck.models import (
+from plumbref.models import (
     ChangeContext,
     ChangeSource,
     ClaimStatus,

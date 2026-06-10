@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from groundcheck.models import ClaimStatus, Judgment, SessionState
+from plumbref.models import ClaimStatus, Judgment, SessionState
 
 
 def record_judgment(
