@@ -29,13 +29,13 @@ artifacts.
 
 ## Install
 
-Install the latest published package when it is available:
+Install the latest published package:
 
 ```shell
 pipx install plumbref
 ```
 
-Beta install from GitHub:
+Install directly from GitHub:
 
 ```shell
 pipx install git+https://github.com/ftaboadac/plumbref.git
