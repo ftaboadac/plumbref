@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "plumbref"
-version = "0.1.0"
+version = "0.1.1"
 description = "Plumbref verifies AI coding-agent claims against source references."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -42,9 +42,9 @@ test = [
 plumbref = "plumbref.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/facundotaboada/plumbref"
-Repository = "https://github.com/facundotaboada/plumbref"
-Issues = "https://github.com/facundotaboada/plumbref/issues"
+Homepage = "https://github.com/ftaboadac/plumbref"
+Repository = "https://github.com/ftaboadac/plumbref"
+Issues = "https://github.com/ftaboadac/plumbref/issues"
 
 [tool.pytest.ini_options]
 python_files = "test_*.py"

@@ -38,7 +38,7 @@ pipx install plumbref
 Beta install from GitHub:
 
 ```shell
-pipx install git+https://github.com/facundotaboada/plumbref.git
+pipx install git+https://github.com/ftaboadac/plumbref.git
 ```
 
 For local development:
