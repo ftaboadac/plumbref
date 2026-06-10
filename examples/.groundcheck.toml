@@ -1,0 +1,15 @@
+ignored_paths = [
+  ".git",
+  ".venv",
+  "node_modules",
+  ".cache",
+  "dist",
+]
+
+privacy_patterns = [
+  "AKIA[0-9A-Z]{16}",
+  "(?i)(api[_-]?key|secret|token|password)\\s*[:=]\\s*['\\\"][^'\\\"]+['\\\"]",
+]
+
+default_budget_mode = "normal"
+default_output_modes = ["engineer", "json"]

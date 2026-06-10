@@ -1,0 +1,17 @@
+.cache/
+.groundcheck/
+.pytest_cache/
+.ruff_cache/
+.venv/
+__pycache__/
+*.egg-info/
+*.py[cod]
+build/
+dist/
+htmlcov/
+.coverage
+coverage.xml
+*.log
+
+# Local repo overrides may contain private paths or redaction patterns.
+.groundcheck.local.toml

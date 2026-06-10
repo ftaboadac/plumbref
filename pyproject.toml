@@ -1,0 +1,67 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "groundcheck"
+version = "0.1.0"
+description = "Source-evidence verification harness for AI coding agents."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Facundo Taboada" },
+]
+keywords = ["ai", "agents", "mcp", "verification", "source-evidence"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+    "mcp>=1.0.0",
+    "pydantic>=2.0.0",
+    "typer>=0.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.8.0",
+]
+test = [
+    "pytest>=8.0.0",
+]
+
+[project.scripts]
+groundcheck = "groundcheck.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/facundotaboada/groundcheck"
+Repository = "https://github.com/facundotaboada/groundcheck"
+Issues = "https://github.com/facundotaboada/groundcheck/issues"
+
+[tool.pytest.ini_options]
+python_files = "test_*.py"
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+exclude = [
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
