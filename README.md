@@ -1,15 +1,37 @@
 # Plumbref
 
-Plumbref verifies AI coding-agent claims against source references.
+Plumbref is a local verification harness for coding agents.
+
+Set it up once through MCP, then ask natural questions about your repository:
+
+```text
+How does the Workday leave push work?
+```
+
+```text
+What should we consider if we move rippling_remote_id from User to UserAccess?
+```
+
+```text
+Could this code change affect downstream consumers or adjacent flows?
+```
+
+Plumbref guides the agent to break answers into claims, search narrowly, read
+bounded source evidence, record conservative judgments, and return an
+inspectable report. The goal is fewer "are you sure?" loops, less token waste,
+and answers your team can check.
 
 It exposes:
 
 - an MCP server for agent-driven verification workflows
-- a CLI for local smoke tests and report rendering
+- a CLI for local smoke tests, debugging, and report rendering
 - deterministic Markdown and JSON reports
 
 Plumbref does not call a model API. It does not need an API key, database,
 vector store, hosted service, or UI.
+
+The intended product surface is conversational agent usage through MCP. The CLI
+exists mainly as a development and validation path.
 
 ## Why A Harness
 
@@ -27,7 +49,19 @@ The agent still extracts claims and reasons over evidence. Plumbref supplies
 the source-grounded workflow, budgets, redaction, status semantics, and report
 artifacts.
 
-## Install
+## User Flow
+
+1. Install Plumbref once.
+2. Add it to your MCP-capable coding agent for a repository.
+3. Ask repo questions naturally in chat.
+4. The agent uses Plumbref tools behind the scenes to verify claims against
+   source evidence.
+5. You get a concise answer with cited files, supported claims, uncertain
+   areas, and safer wording.
+
+You should not need to manually run verification commands during normal use.
+
+## One-Time Setup
 
 Install the latest published package:
 
@@ -55,60 +89,8 @@ Plumbref uses `rg`/ripgrep for repository search:
 rg --version
 ```
 
-## CLI
-
-Run the MCP server against a repository:
-
-```shell
-plumbref mcp --repo-root /path/to/repo
-```
-
-Run a local verification smoke test:
-
-```shell
-plumbref verify \
-  --repo-root /path/to/repo \
-  --question "What does this scheduled job do?" \
-  --answer answer.md
-```
-
-Use a config file:
-
-```shell
-plumbref verify \
-  --repo-root /path/to/repo \
-  --config /path/to/plumbref.toml \
-  --question "What happens if provider_id is missing?" \
-  --answer answer.md
-```
-
-Explicit modes are available:
-
-```shell
-plumbref verify \
-  --repo-root /path/to/repo \
-  --mode scenario \
-  --scenario "run_scheduled_job receives provider_id=None" \
-  --budget-mode normal \
-  --output-mode engineer \
-  --output-mode json \
-  --question "What happens if provider_id is missing?" \
-  --answer answer.md
-```
-
-For change-impact checks:
-
-```shell
-plumbref verify \
-  --repo-root /path/to/repo \
-  --mode change_impact \
-  --changed-file app/reports.py \
-  --question "What does this change affect?" \
-  --answer impact.md
-```
-
-The CLI does not extract claims automatically. For a full workflow, use MCP or
-pass a JSON claims file with `--claims`.
+Then add Plumbref to your MCP client configuration. See [MCP Setup](#mcp-setup)
+for the command and JSON shape.
 
 ## Config
 
@@ -184,7 +166,10 @@ Claude Code, Codex, and other MCP clients generally use the same command/args
 shape for stdio servers. Use the client-specific location for MCP server
 configuration and point it at the same command.
 
-## MCP Workflow
+## Behind-The-Scenes MCP Workflow
+
+Users normally do not send these payloads by hand. An agent should call these
+tools after you ask a natural-language repo question.
 
 Start a session:
 
@@ -336,12 +321,34 @@ By default, reports are written under:
 
 Generated reports and caches are ignored by the project `.gitignore`.
 
+## Development CLI
+
+The CLI is primarily for local smoke tests, debugging, and report rendering.
+For normal usage, connect an MCP-capable agent to Plumbref and ask questions in
+chat.
+
+Run a local smoke test:
+
+```shell
+plumbref verify \
+  --repo-root /path/to/repo \
+  --question "What does this scheduled job do?" \
+  --answer answer.md
+```
+
+The CLI does not extract claims automatically. For a full workflow, use MCP or
+pass a JSON claims file with `--claims`.
+
 ## Development
+
+See [ROADMAP.md](ROADMAP.md) for the implementation roadmap toward
+source-grounded repo answers, migration checks, change-impact analysis, and
+lower-token verification workflows.
 
 Run tests:
 
 ```shell
-pytest
+python -m pytest
 ```
 
 Run lint:
