@@ -112,6 +112,34 @@ def test_read_evidence_returns_redacted_line_snippet() -> None:
     assert "missing provider_id" in snippet.excerpt
 
 
+def test_read_evidence_records_template_category() -> None:
+    """Evidence snippets can be tagged with template evidence categories."""
+    repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
+    harness = PlumbrefHarness()
+    state = harness.start_session(
+        repo_root=repo_root,
+        question="What happens if provider_id is missing?",
+        answer="The scheduled job is skipped.",
+        budget_mode=BudgetMode.FAST,
+        template_id="generic_verification",
+    )
+    claim = ClaimWorkItem(text="The scheduled job skips work when provider_id is missing.")
+    harness.store_claims([claim], session_id=state.session.id)
+    config = load_config(repo_root)
+
+    snippet = read_evidence(
+        state=state,
+        config=config,
+        claim_id=claim.id,
+        file="app.py",
+        start_line=9,
+        end_line=11,
+        evidence_category="direct implementation",
+    )
+
+    assert snippet.evidence_category == "direct implementation"
+
+
 def test_read_evidence_rejects_paths_outside_repo() -> None:
     """Evidence reads cannot escape the repository root."""
     repo_root = Path(__file__).parent / "fixtures" / "sample_repo"

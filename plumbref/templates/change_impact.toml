@@ -1,0 +1,65 @@
+id = "change_impact"
+version = "1.0"
+name = "Change impact"
+description = "Evaluate likely downstream effects of a diff, PR, branch, or changed file set."
+modes = ["change_impact"]
+required_claim_types = ["impact", "behavior", "api"]
+
+required_searches = [
+  "{changed_file}",
+  "{changed_symbol}",
+  "{changed_symbol} caller",
+  "{changed_symbol} import",
+]
+
+contradiction_searches = [
+  "{changed_symbol} test",
+  "{changed_symbol} fixture",
+  "{changed_symbol} docs",
+  "{changed_symbol} downstream",
+]
+
+evidence_categories = [
+  "changed surface area",
+  "direct consumers",
+  "indirect or downstream consumers",
+  "contracts or API boundaries",
+  "tests",
+  "docs",
+]
+
+report_sections = [
+  "changed surface area",
+  "direct consumers",
+  "supported impacts",
+  "speculative impacts",
+  "missing tests",
+  "safer impact statement",
+]
+
+unchecked_area_prompts = [
+  "Were callers and imports checked?",
+  "Were tests for touched behavior found?",
+  "Does any claim use only, always, or never without broad searches?",
+]
+
+[budgets.fast]
+max_claims = 6
+searches_per_claim = 4
+files_per_claim = 5
+snippets_per_claim = 8
+reference_depth = 1
+
+[budgets.normal]
+max_claims = 10
+searches_per_claim = 7
+files_per_claim = 8
+snippets_per_claim = 12
+reference_depth = 2
+
+[budgets.deep]
+max_claims = 20
+searches_per_claim = 12
+files_per_claim = 16
+snippets_per_claim = 24
+reference_depth = 3

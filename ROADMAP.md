@@ -50,13 +50,13 @@ exhausted.
 
 Goal: make the existing MVP easier to trust, install, and explain.
 
-- [ ] Fix package version mismatch between `pyproject.toml` and `plumbref/__init__.py`.
+- [x] Fix package version mismatch between `pyproject.toml` and `plumbref/__init__.py`.
 - [x] Position the README around one-time MCP setup and natural chat usage.
 - [x] Update README test command to use the local project environment, such as
       `python -m pytest`.
-- [ ] Add a short architecture section to the README.
-- [ ] Add example reports for explanation, scenario, and change-impact modes.
-- [ ] Add a changelog or release checklist.
+- [x] Add a short architecture section to the README.
+- [x] Add example reports for explanation, scenario, and change-impact modes.
+- [x] Add a changelog or release checklist.
 
 Acceptance criteria:
 
@@ -71,12 +71,12 @@ structured playbooks.
 
 Add first-class templates:
 
-- [ ] `explain_flow`: for questions like "how does the Workday leave push work?"
-- [ ] `field_migration`: for questions like "what if we move Rippling remote id
-      from User to UserAccess?"
-- [ ] `change_impact`: for diffs, PRs, and local worktree changes.
-- [ ] `downstream_consumers`: for contract, event, API, model, and job changes.
-- [ ] `external_integration`: for vendor syncs, pushes, pulls, webhooks, and API
+- [x] `explain_flow`: for questions like "how does the nightly cleanup job work?"
+- [x] `field_migration`: for questions like "what if we move customer_external_id
+      from Account to AccountConnection?"
+- [x] `change_impact`: for diffs, PRs, and local worktree changes.
+- [x] `downstream_consumers`: for contract, event, API, model, and job changes.
+- [x] `external_integration`: for vendor syncs, pushes, pulls, webhooks, and API
       clients.
 
 Each template should define:
@@ -186,7 +186,7 @@ Report sections:
 
 Acceptance criteria:
 
-- A question like "move Rippling remote id from User to UserAccess" produces a
+- A question like "move customer_external_id from Account to AccountConnection" produces a
   checklist of impacted code paths and unknowns, not a vague answer.
 
 ## Phase 5: Flow Explanation Workflow
@@ -253,15 +253,15 @@ Acceptance criteria:
 Goal: make MCP usage predictable across Codex, Claude Code, Cursor, and similar
 clients.
 
-- [ ] Add MCP workflow examples per template.
-- [ ] Add recommended agent instructions.
-- [ ] Add conversational examples for the target questions: flow explanation,
+- [x] Add MCP workflow examples per template.
+- [x] Add recommended agent instructions.
+- [x] Add conversational examples for the target questions: flow explanation,
       field migration, and change impact.
 - [ ] Add a "minimal context" mode that returns IDs and summaries first, then
       snippets only when requested.
 - [ ] Add structured errors that tell the agent what to do next.
 - [ ] Add report links and session summaries optimized for chat clients.
-- [ ] Treat the CLI as an internal validation/debug path, not as a primary
+- [x] Treat the CLI as an internal validation/debug path, not as a primary
       user journey.
 
 Acceptance criteria:

@@ -1,0 +1,67 @@
+id = "downstream_consumers"
+version = "1.0"
+name = "Downstream consumers"
+description = "Find direct and likely downstream consumers of a contract, event, API, model, or job change."
+modes = ["explanation", "scenario", "change_impact"]
+required_claim_types = ["definition", "api", "impact", "behavior"]
+
+required_searches = [
+  "{contract_name}",
+  "{symbol_name}",
+  "{event_or_payload_name}",
+  "{route_or_job_name}",
+]
+
+contradiction_searches = [
+  "{contract_name} client",
+  "{contract_name} consumer",
+  "{contract_name} subscriber",
+  "{contract_name} test",
+  "{contract_name} docs",
+]
+
+evidence_categories = [
+  "contract definition",
+  "direct call sites",
+  "clients or consumers",
+  "events or subscribers",
+  "jobs or scheduled workflows",
+  "tests",
+  "docs",
+]
+
+report_sections = [
+  "changed or queried contract",
+  "direct consumers",
+  "likely downstream consumers",
+  "unsupported consumer claims",
+  "unchecked areas",
+  "safer consumer statement",
+]
+
+unchecked_area_prompts = [
+  "Were direct references and named consumers both searched?",
+  "Were tests or docs used to confirm consumer behavior?",
+  "Which consumer paths were inferred rather than source-backed?",
+]
+
+[budgets.fast]
+max_claims = 6
+searches_per_claim = 4
+files_per_claim = 5
+snippets_per_claim = 8
+reference_depth = 1
+
+[budgets.normal]
+max_claims = 10
+searches_per_claim = 7
+files_per_claim = 8
+snippets_per_claim = 12
+reference_depth = 2
+
+[budgets.deep]
+max_claims = 20
+searches_per_claim = 12
+files_per_claim = 16
+snippets_per_claim = 24
+reference_depth = 3

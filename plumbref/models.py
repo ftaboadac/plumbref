@@ -70,6 +70,36 @@ class SearchBudget(BaseModel):
     reference_depth: int = Field(ge=0)
 
 
+class VerificationTemplate(BaseModel):
+    id: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
+    version: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    description: str = Field(min_length=1)
+    modes: list[VerificationMode] = Field(default_factory=list)
+    required_claim_types: list[ClaimType] = Field(default_factory=list)
+    required_searches: list[str] = Field(default_factory=list)
+    contradiction_searches: list[str] = Field(default_factory=list)
+    evidence_categories: list[str] = Field(default_factory=list)
+    report_sections: list[str] = Field(default_factory=list)
+    unchecked_area_prompts: list[str] = Field(default_factory=list)
+    budgets: dict[BudgetMode, SearchBudget] = Field(default_factory=dict)
+    source: str = "builtin"
+
+    @field_validator(
+        "required_searches",
+        "contradiction_searches",
+        "evidence_categories",
+        "report_sections",
+        "unchecked_area_prompts",
+    )
+    @classmethod
+    def reject_blank_template_items(cls, values: list[str]) -> list[str]:
+        for value in values:
+            if not value.strip():
+                raise ValueError("template list items cannot be blank")
+        return values
+
+
 class BudgetUsage(BaseModel):
     searches: int = 0
     files: int = 0
@@ -108,6 +138,7 @@ class VerificationSession(BaseModel):
     answer: str
     mode: VerificationMode = VerificationMode.EXPLANATION
     scenario: str | None = None
+    template: VerificationTemplate | None = None
     change_context: ChangeContext | None = None
     budget_mode: BudgetMode = BudgetMode.NORMAL
     output_modes: list[OutputMode] = Field(default_factory=lambda: [OutputMode.ENGINEER])
@@ -157,6 +188,7 @@ class EvidenceSnippet(BaseModel):
     end_line: int = Field(gt=0)
     excerpt: str
     summary: str = ""
+    evidence_category: str | None = None
     sha256: str
 
     @model_validator(mode="after")

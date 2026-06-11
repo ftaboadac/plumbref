@@ -19,6 +19,7 @@ from plumbref.models import (
 )
 from plumbref.reports import render_report
 from plumbref.sessions import HARNESS
+from plumbref.template_registry import TemplateLoadError, load_templates, summarize_templates
 
 app = typer.Typer(help="Plumbref verifies AI coding-agent claims against source references.")
 
@@ -53,6 +54,7 @@ def verify(
     config: Annotated[Path | None, typer.Option(help="Path to a Plumbref TOML config file.")] = None,
     budget_mode: Annotated[BudgetMode | None, typer.Option(help="Verification budget mode.")] = None,
     output_mode: Annotated[list[OutputMode] | None, typer.Option(help="Output mode.")] = None,
+    template_id: Annotated[str | None, typer.Option(help="Verification template ID.")] = None,
 ) -> None:
     try:
         state = HARNESS.start_session(
@@ -64,8 +66,9 @@ def verify(
             config_path=config,
             budget_mode=budget_mode,
             output_modes=output_mode,
+            template_id=template_id,
         )
-    except ConfigLoadError as exc:
+    except (ConfigLoadError, TemplateLoadError) as exc:
         raise typer.BadParameter(str(exc)) from exc
     if mode == VerificationMode.CHANGE_IMPACT or changed_file or diff or diff_target or base_ref or compare_ref:
         try:
@@ -104,6 +107,37 @@ def verify(
         typer.echo(f"Markdown report: {report.markdown_path}")
     if report.json_path:
         typer.echo(f"JSON report: {report.json_path}")
+
+
+@app.command("templates")
+def templates_command(
+    repo_root: Annotated[Path | None, typer.Option(help="Repository root used for repo-local templates.")] = None,
+    config: Annotated[Path | None, typer.Option(help="Path to a Plumbref TOML config file.")] = None,
+    template_id: Annotated[str | None, typer.Option(help="Show one template in full.")] = None,
+) -> None:
+    try:
+        resolved_repo_root = repo_root or Path.cwd()
+        loaded_config = HARNESS.get_config() if HARNESS.active_session_id and config is None else None
+        if loaded_config is None:
+            from plumbref.config import load_config
+
+            loaded_config = load_config(resolved_repo_root, config)
+        loaded = load_templates(resolved_repo_root, loaded_config)
+    except (ConfigLoadError, TemplateLoadError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    if template_id:
+        if template_id not in loaded:
+            available = ", ".join(sorted(loaded)) or "none"
+            raise typer.BadParameter(f"unknown template {template_id!r}; available templates: {available}")
+        typer.echo(loaded[template_id].model_dump_json(indent=2))
+        return
+
+    for template in summarize_templates(loaded.values()):
+        typer.echo(
+            f"{template['id']}@{template['version']} - {template['name']} "
+            f"({template['source']})"
+        )
 
 
 def change_source_for_inputs(

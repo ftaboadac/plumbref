@@ -1,0 +1,69 @@
+id = "external_integration"
+version = "1.0"
+name = "External integration"
+description = "Verify behavior around vendor syncs, pushes, pulls, webhooks, and API clients."
+modes = ["explanation", "scenario", "change_impact"]
+required_claim_types = ["definition", "behavior", "api", "business_rule", "impact"]
+
+required_searches = [
+  "{vendor_name}",
+  "{integration_name}",
+  "{webhook_or_client_name}",
+  "{external_identifier}",
+]
+
+contradiction_searches = [
+  "{vendor_name} error",
+  "{vendor_name} retry",
+  "{vendor_name} idempotent",
+  "{vendor_name} webhook",
+  "{vendor_name} test mock",
+]
+
+evidence_categories = [
+  "integration entry point",
+  "external client or webhook",
+  "request payload",
+  "response handling",
+  "failure handling",
+  "retry or idempotency behavior",
+  "configuration or env dependency",
+  "tests",
+  "docs",
+]
+
+report_sections = [
+  "integration summary",
+  "source-backed request path",
+  "payload and response handling",
+  "failure and retry behavior",
+  "configuration dependencies",
+  "unchecked areas",
+]
+
+unchecked_area_prompts = [
+  "Were external calls and payload builders found?",
+  "Were retry, idempotency, and failure paths checked?",
+  "Were tests or mocks found for the vendor behavior?",
+]
+
+[budgets.fast]
+max_claims = 6
+searches_per_claim = 4
+files_per_claim = 5
+snippets_per_claim = 8
+reference_depth = 1
+
+[budgets.normal]
+max_claims = 10
+searches_per_claim = 7
+files_per_claim = 8
+snippets_per_claim = 12
+reference_depth = 2
+
+[budgets.deep]
+max_claims = 20
+searches_per_claim = 12
+files_per_claim = 16
+snippets_per_claim = 24
+reference_depth = 3

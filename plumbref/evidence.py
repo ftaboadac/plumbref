@@ -26,6 +26,7 @@ def read_evidence(
     start_line: int,
     end_line: int,
     summary: str = "",
+    evidence_category: str | None = None,
 ) -> EvidenceSnippet:
     claim = state.claims[claim_id]
     try:
@@ -48,6 +49,7 @@ def read_evidence(
         end_line=min(end_line, len(lines)),
         excerpt=excerpt,
         summary=redact_text(summary, config.privacy_patterns),
+        evidence_category=redact_text(evidence_category, config.privacy_patterns) if evidence_category else None,
         sha256=hashlib.sha256(excerpt.encode("utf-8")).hexdigest(),
     )
     claim.usage.files += 1

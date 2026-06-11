@@ -18,6 +18,7 @@ from plumbref.models import (
 from plumbref.reports import render_report
 from plumbref.search import search_repo
 from plumbref.sessions import HARNESS
+from plumbref.template_registry import get_template, load_templates, summarize_templates
 
 
 def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
@@ -36,6 +37,7 @@ def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
         scenario: str | None = None,
         budget_mode: str | None = None,
         output_modes: list[str] | None = None,
+        template_id: str | None = None,
     ) -> dict[str, Any]:
         """Start a verification session."""
         modes = [OutputMode(output_mode) for output_mode in output_modes] if output_modes else None
@@ -48,8 +50,23 @@ def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
             config_path=config_path,
             budget_mode=BudgetMode(budget_mode) if budget_mode else None,
             output_modes=modes,
+            template_id=template_id,
         )
         return state.model_dump(mode="json")
+
+    @server.tool()
+    def plumbref_list_templates() -> dict[str, Any]:
+        """List built-in, user, and repo-local verification templates."""
+        config = HARNESS.get_config() if HARNESS.active_session_id else None
+        templates = load_templates(repo_root, config)
+        return {"templates": summarize_templates(templates.values())}
+
+    @server.tool()
+    def plumbref_get_template(template_id: str) -> dict[str, Any]:
+        """Return one verification template playbook by ID."""
+        config = HARNESS.get_config() if HARNESS.active_session_id else None
+        template = get_template(template_id, repo_root=repo_root, config=config)
+        return template.model_dump(mode="json")
 
     @server.tool()
     def plumbref_record_change_context(
@@ -118,6 +135,7 @@ def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
         end_line: int,
         session_id: str | None = None,
         summary: str = "",
+        evidence_category: str | None = None,
     ) -> dict[str, Any]:
         """Read a bounded source snippet for one claim. Use search results to choose file and line ranges."""
         state = HARNESS.get_state(session_id)
@@ -130,6 +148,7 @@ def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
             start_line=start_line,
             end_line=end_line,
             summary=summary,
+            evidence_category=evidence_category,
         )
         return snippet.model_dump(mode="json")
 

@@ -5,11 +5,11 @@ Plumbref is a local verification harness for coding agents.
 Set it up once through MCP, then ask natural questions about your repository:
 
 ```text
-How does the Workday leave push work?
+How does the nightly account cleanup job work?
 ```
 
 ```text
-What should we consider if we move rippling_remote_id from User to UserAccess?
+What should we consider if we move customer_external_id from Account to AccountConnection?
 ```
 
 ```text
@@ -61,6 +61,23 @@ artifacts.
 
 You should not need to manually run verification commands during normal use.
 
+## Architecture
+
+Plumbref is a local-first verification harness with three small layers:
+
+- `plumbref.mcp_server` exposes the agent-facing MCP tools: start a session,
+  store claims, search the repo, read bounded snippets, record judgments, and
+  render reports.
+- `plumbref.sessions`, `plumbref.search`, `plumbref.evidence`, and
+  `plumbref.judgments` hold the verification state and enforce local budgets,
+  ignored paths, snippet bounds, and conservative status rules.
+- `plumbref.reports` renders deterministic Markdown and JSON reports with
+  cited evidence, search traces, limits, and safe wording for scenario or
+  change-impact checks.
+
+The CLI wraps the same harness for development smoke tests. It is intentionally
+not a separate product path and it does not add model-based claim extraction.
+
 ## One-Time Setup
 
 Install the latest published package:
@@ -92,6 +109,9 @@ rg --version
 Then add Plumbref to your MCP client configuration. See [MCP Setup](#mcp-setup)
 for the command and JSON shape.
 
+For agent-specific usage guidance, recommended instructions, and conversational
+examples, see [Agent Usage Guide](docs/agent-usage.md).
+
 ## Config
 
 Config discovery order:
@@ -118,9 +138,16 @@ privacy_patterns = [
 
 default_budget_mode = "normal"
 default_output_modes = ["engineer", "json"]
+default_template_id = "generic_verification"
+
+template_paths = [
+  "plumbref-template-pack",
+]
 ```
 
 `redaction_patterns` is accepted as an alias for `privacy_patterns`.
+`template_paths` entries are resolved relative to the repository root unless
+they are absolute paths.
 
 ## MCP Setup
 
@@ -199,6 +226,97 @@ Store claims extracted by the agent:
 
 Then search, read evidence, record a judgment, and render the report with the
 MCP tools exposed by the server.
+
+## Verification Templates
+
+Templates are versioned verification playbooks. They do not encode knowledge
+about one repository. They define the evidence categories, required search
+passes, contradiction searches, budgets, report sections, and unchecked-area
+prompts that an agent should follow for a class of engineering question.
+
+Built-in templates:
+
+- `generic_verification`: fallback protocol for unsupported or unusual cases
+- `explain_flow`: explain how a workflow or integration works
+- `field_migration`: check impact of moving or changing a field
+- `change_impact`: evaluate likely downstream effects of a diff or changed file
+- `downstream_consumers`: find direct and likely consumers of a contract or API
+- `external_integration`: inspect vendor syncs, webhooks, pushes, pulls, and clients
+
+List available templates:
+
+```shell
+plumbref templates --repo-root /path/to/repo
+```
+
+Inspect one template:
+
+```shell
+plumbref templates --repo-root /path/to/repo --template-id field_migration
+```
+
+Agents can start a session with a template:
+
+```json
+{
+  "question": "What should we consider before moving provider_id?",
+  "answer": "The field move may affect job enqueueing and payload builders.",
+  "mode": "scenario",
+  "template_id": "field_migration",
+  "budget_mode": "normal",
+  "output_modes": ["engineer", "json"]
+}
+```
+
+If no built-in template fits, use `generic_verification` or add a custom
+template.
+
+### Custom Templates
+
+Repo-local templates live in:
+
+```text
+.plumbref/templates/
+```
+
+Shared template packs can live anywhere and be referenced with `template_paths`
+in `.plumbref.toml`. Plumbref loads templates in this order:
+
+1. built-in templates
+2. user templates from `~/.config/plumbref/templates`
+3. repo-local templates from `.plumbref/templates`
+4. configured `template_paths`
+
+Later sources can override earlier templates with the same ID. This lets a team
+adapt a built-in playbook without forking Plumbref.
+
+Minimal custom template:
+
+```toml
+id = "billing_webhook"
+version = "1.0"
+name = "Billing webhook"
+description = "Verify billing webhook behavior."
+modes = ["explanation", "scenario", "change_impact"]
+
+required_claim_types = ["behavior", "api", "impact"]
+required_searches = ["{webhook_name}", "{event_name}"]
+contradiction_searches = ["{webhook_name} test", "{event_name} retry"]
+evidence_categories = ["webhook entry point", "payload handling", "tests"]
+report_sections = ["supported behavior", "unchecked areas", "safe conclusion"]
+unchecked_area_prompts = ["Were retries and duplicate deliveries checked?"]
+
+[budgets.normal]
+max_claims = 8
+searches_per_claim = 6
+files_per_claim = 6
+snippets_per_claim = 10
+reference_depth = 2
+```
+
+Template placeholders are intentionally generic. The agent maps them to the
+repo-specific names from the user's question or changed files, then records the
+actual searches and evidence snippets in the report.
 
 ## Explanation Mode
 
@@ -320,6 +438,12 @@ By default, reports are written under:
 ```
 
 Generated reports and caches are ignored by the project `.gitignore`.
+
+Checked-in example reports:
+
+- [Explanation report](examples/reports/explanation.md)
+- [Scenario report](examples/reports/scenario.md)
+- [Change-impact report](examples/reports/change-impact.md)
 
 ## Development CLI
 

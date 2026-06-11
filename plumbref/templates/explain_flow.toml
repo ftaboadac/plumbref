@@ -1,0 +1,67 @@
+id = "explain_flow"
+version = "1.0"
+name = "Explain flow"
+description = "Explain how a workflow or integration currently behaves from source evidence."
+modes = ["explanation"]
+required_claim_types = ["definition", "behavior", "api", "business_rule"]
+
+required_searches = [
+  "{flow_name}",
+  "{entry_point}",
+  "{main_entity}",
+  "{external_system}",
+]
+
+contradiction_searches = [
+  "{flow_name} test",
+  "{flow_name} error",
+  "{entry_point} disabled",
+  "{external_system} mock",
+]
+
+evidence_categories = [
+  "entry point",
+  "main implementation path",
+  "data inputs",
+  "data outputs",
+  "external calls",
+  "failure handling",
+  "tests",
+  "docs",
+]
+
+report_sections = [
+  "short flow summary",
+  "source-backed path",
+  "inputs and outputs",
+  "failure modes",
+  "open uncertainties",
+  "files worth reading next",
+]
+
+unchecked_area_prompts = [
+  "Did the search find the entry point?",
+  "Were failure and retry paths checked?",
+  "Were tests or docs found for this flow?",
+]
+
+[budgets.fast]
+max_claims = 5
+searches_per_claim = 4
+files_per_claim = 4
+snippets_per_claim = 6
+reference_depth = 1
+
+[budgets.normal]
+max_claims = 8
+searches_per_claim = 6
+files_per_claim = 6
+snippets_per_claim = 10
+reference_depth = 2
+
+[budgets.deep]
+max_claims = 16
+searches_per_claim = 10
+files_per_claim = 12
+snippets_per_claim = 20
+reference_depth = 3

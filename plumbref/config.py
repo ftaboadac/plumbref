@@ -26,6 +26,8 @@ class PlumbrefConfig(BaseModel):
     docs_paths: list[str] = Field(default_factory=lambda: ["docs"])
     cache_path: Path = Path(".cache/plumbref")
     report_path: Path = Path(".cache/plumbref/reports")
+    template_paths: list[Path] = Field(default_factory=list)
+    default_template_id: str | None = None
     privacy_patterns: list[str] = Field(
         default_factory=lambda: [
             r"AKIA[0-9A-Z]{16}",
@@ -58,6 +60,7 @@ def load_config(repo_root: Path, config_path: Path | None = None) -> PlumbrefCon
     config = build_config(payload)
     config.cache_path = resolve_config_path(resolved_repo_root, config.cache_path)
     config.report_path = resolve_config_path(resolved_repo_root, config.report_path)
+    config.template_paths = [resolve_config_path(resolved_repo_root, path) for path in config.template_paths]
     return config
 
 

@@ -1,0 +1,71 @@
+id = "field_migration"
+version = "1.0"
+name = "Field migration"
+description = "Check likely impacts of moving or changing ownership of a field."
+modes = ["scenario", "change_impact"]
+required_claim_types = ["definition", "behavior", "impact", "recommendation"]
+
+required_searches = [
+  "{field_name}",
+  "{source_owner}",
+  "{target_owner}",
+  "{field_name} read",
+  "{field_name} write",
+]
+
+contradiction_searches = [
+  "{field_name} migration",
+  "{field_name} backfill",
+  "{field_name} serializer schema payload",
+  "{field_name} external api webhook sync",
+  "{field_name} test fixture",
+]
+
+evidence_categories = [
+  "field definition",
+  "direct reads",
+  "direct writes",
+  "persistence or migration artifacts",
+  "validation or schema boundary",
+  "API or event payload boundary",
+  "background jobs or async workflows",
+  "external integrations",
+  "tests",
+  "docs",
+]
+
+report_sections = [
+  "supported migration impacts",
+  "likely code changes",
+  "data migration or backfill risks",
+  "downstream consumers",
+  "unchecked areas",
+  "safer implementation plan",
+]
+
+unchecked_area_prompts = [
+  "Which reads or writes were not traced to a caller?",
+  "Were persistence and backfill requirements found?",
+  "Were external payload boundaries checked?",
+]
+
+[budgets.fast]
+max_claims = 6
+searches_per_claim = 4
+files_per_claim = 5
+snippets_per_claim = 8
+reference_depth = 1
+
+[budgets.normal]
+max_claims = 10
+searches_per_claim = 7
+files_per_claim = 8
+snippets_per_claim = 12
+reference_depth = 2
+
+[budgets.deep]
+max_claims = 20
+searches_per_claim = 12
+files_per_claim = 16
+snippets_per_claim = 24
+reference_depth = 3

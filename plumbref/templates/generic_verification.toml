@@ -1,0 +1,61 @@
+id = "generic_verification"
+version = "1.0"
+name = "Generic verification"
+description = "A fallback protocol for claims that do not fit a specialized template."
+modes = ["explanation", "scenario", "change_impact"]
+required_claim_types = ["behavior", "definition", "impact", "unknown"]
+
+required_searches = [
+  "{primary_entity}",
+  "{primary_action}",
+  "{claim_keyword}",
+]
+
+contradiction_searches = [
+  "{primary_entity} not",
+  "{primary_entity} error",
+  "{primary_entity} test",
+]
+
+evidence_categories = [
+  "direct implementation",
+  "callers or consumers",
+  "tests",
+  "docs",
+  "unchecked areas",
+]
+
+report_sections = [
+  "claims",
+  "evidence",
+  "search trace",
+  "limits",
+  "safe conclusion",
+]
+
+unchecked_area_prompts = [
+  "Which evidence categories were not found?",
+  "Which claims are too broad for the available evidence?",
+  "What safer wording should replace unsupported absolute language?",
+]
+
+[budgets.fast]
+max_claims = 5
+searches_per_claim = 3
+files_per_claim = 4
+snippets_per_claim = 6
+reference_depth = 1
+
+[budgets.normal]
+max_claims = 8
+searches_per_claim = 5
+files_per_claim = 6
+snippets_per_claim = 10
+reference_depth = 2
+
+[budgets.deep]
+max_claims = 20
+searches_per_claim = 8
+files_per_claim = 12
+snippets_per_claim = 20
+reference_depth = 3

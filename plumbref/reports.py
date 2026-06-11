@@ -55,6 +55,7 @@ def build_json_report(state: SessionState, config: PlumbrefConfig) -> dict[str, 
         "verdict": verdict,
         "mode": state.session.mode,
         "scenario": state.session.scenario,
+        "template": state.session.template.model_dump(mode="json") if state.session.template else None,
         "change_context": state.session.change_context.model_dump(mode="json")
         if state.session.change_context
         else None,
@@ -87,10 +88,17 @@ def build_markdown_report(
         f"Verification mode: {state.session.mode.value}",
         f"Budget mode: {state.session.budget_mode.value}",
     ]
+    if state.session.template:
+        lines.append(
+            f"Template: {state.session.template.name} "
+            f"(`{state.session.template.id}` v{state.session.template.version})"
+        )
     if state.session.mode == VerificationMode.SCENARIO and state.session.scenario:
         lines.extend(["", f"Scenario: {redact_text(state.session.scenario, config.privacy_patterns)}"])
     if state.session.mode == VerificationMode.CHANGE_IMPACT:
         lines.extend(["", "## Change Scope", *format_change_scope(state, config)])
+    if state.session.template:
+        lines.extend(["", "## Template Checklist", *format_template_checklist(state, config)])
     lines.extend(["", claim_section_heading(state)])
     for claim in claims_for_report(state):
         lines.extend(
@@ -126,7 +134,8 @@ def build_markdown_report(
             for snippet in evidence_for_claim:
                 location = f"{snippet.file}:{snippet.start_line}-{snippet.end_line}"
                 summary = redact_text(snippet.summary, config.privacy_patterns) or "Evidence snippet recorded."
-                lines.append(f"  - `{location}`: {summary}")
+                category = f" [{snippet.evidence_category}]" if snippet.evidence_category else ""
+                lines.append(f"  - `{location}`{category}: {summary}")
                 lines.extend(format_excerpt(snippet.excerpt))
 
     lines.extend(["", "## Search Trace"])
@@ -163,6 +172,60 @@ def build_markdown_report(
             ],
         )
     return "\n".join(lines).strip() + "\n"
+
+
+def format_template_checklist(state: SessionState, config: PlumbrefConfig) -> list[str]:
+    template = state.session.template
+    if not template:
+        return []
+
+    lines = [
+        f"- Source: {redact_text(template.source, config.privacy_patterns)}",
+    ]
+    if template.required_claim_types:
+        lines.append(
+            "- Required claim types: "
+            + ", ".join(f"`{claim_type.value}`" for claim_type in template.required_claim_types)
+        )
+    lines.extend(format_template_list("Required searches", template.required_searches, config))
+    lines.extend(format_template_list("Contradiction searches", template.contradiction_searches, config))
+    lines.extend(format_template_list("Evidence categories", template.evidence_categories, config))
+    lines.extend(format_template_list("Report sections", template.report_sections, config))
+    if template.unchecked_area_prompts:
+        lines.append("- Unchecked-area prompts:")
+        for prompt in template.unchecked_area_prompts:
+            lines.append(f"  - {redact_text(prompt, config.privacy_patterns)}")
+
+    evidence_categories = sorted(
+        {
+            snippet.evidence_category
+            for snippet in state.evidence.values()
+            if snippet.evidence_category
+        }
+    )
+    if evidence_categories:
+        recorded_categories = ", ".join(f"`{category}`" for category in evidence_categories)
+        lines.append(f"- Evidence categories recorded: {recorded_categories}")
+    else:
+        lines.append("- Evidence categories recorded: none")
+
+    judged_claims = [claim for claim in state.claims.values() if claim.id in state.judgments]
+    contradiction_count = sum(
+        1
+        for claim in judged_claims
+        if state.judgments[claim.id].contradiction_searched
+    )
+    lines.append(f"- Contradiction passes recorded: {contradiction_count}/{len(judged_claims)} judged claim(s)")
+    return lines
+
+
+def format_template_list(label: str, values: list[str], config: PlumbrefConfig) -> list[str]:
+    if not values:
+        return []
+    lines = [f"- {label}:"]
+    for value in values:
+        lines.append(f"  - `{redact_text(value, config.privacy_patterns)}`")
+    return lines
 
 
 def claim_section_heading(state: SessionState) -> str:

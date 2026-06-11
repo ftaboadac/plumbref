@@ -13,6 +13,7 @@ from plumbref.models import (
     VerificationMode,
     VerificationSession,
 )
+from plumbref.template_registry import TemplateLoadError, get_template
 
 
 class PlumbrefHarness:
@@ -32,21 +33,36 @@ class PlumbrefHarness:
         config_path: Path | None = None,
         budget_mode: BudgetMode | None = None,
         output_modes: list[OutputMode] | None = None,
+        template_id: str | None = None,
     ) -> SessionState:
         resolved_repo_root = repo_root.expanduser().resolve()
         config = load_config(resolved_repo_root, config_path)
+        resolved_template_id = template_id or config.default_template_id
+        template = (
+            get_template(resolved_template_id, repo_root=resolved_repo_root, config=config)
+            if resolved_template_id
+            else None
+        )
+        if template and template.modes and mode not in template.modes:
+            supported_modes = ", ".join(template_mode.value for template_mode in template.modes)
+            raise TemplateLoadError(
+                f"template {template.id!r} does not support mode {mode.value!r}; "
+                f"supported modes: {supported_modes}"
+            )
         resolved_budget_mode = budget_mode or config.default_budget_mode
         resolved_output_modes = output_modes or config.default_output_modes
+        budget = template.budgets.get(resolved_budget_mode) if template else None
         session = VerificationSession(
             repo_root=resolved_repo_root,
             question=question,
             answer=answer,
             mode=mode,
             scenario=scenario,
+            template=template,
             budget_mode=resolved_budget_mode,
             output_modes=resolved_output_modes,
         )
-        state = SessionState(session=session, budget=budget_for_mode(resolved_budget_mode))
+        state = SessionState(session=session, budget=budget or budget_for_mode(resolved_budget_mode))
         self._sessions.clear()
         self._configs.clear()
         self._sessions[session.id] = state
