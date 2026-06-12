@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from plumbref.judgments import record_judgment
 from plumbref.models import (
     ChangeContext,
     ChangeSource,
@@ -14,6 +15,7 @@ from plumbref.models import (
     VerificationMode,
     VerificationSession,
 )
+from plumbref.sessions import PlumbrefHarness
 
 
 def test_search_budget_requires_positive_limits() -> None:
@@ -50,6 +52,33 @@ def test_scenario_claim_can_store_expected_outcome() -> None:
     )
 
     assert claim.expected_outcome == "Markdown and JSON reports are written."
+
+
+def test_claim_detects_broad_language() -> None:
+    """Claims automatically record broad or absolute wording."""
+    claim = ClaimWorkItem(text="This always updates every downstream job and guarantees success.")
+
+    assert claim.absolute_language == ["always", "every", "guarantees"]
+
+
+def test_supported_broad_claim_requires_contradiction_notes(tmp_path: Path) -> None:
+    """Broad claims need explicit notes before they can be marked supported."""
+    harness = PlumbrefHarness()
+    state = harness.start_session(
+        repo_root=tmp_path,
+        question="What changes?",
+        answer="This always updates jobs.",
+    )
+    claim = ClaimWorkItem(text="This always updates jobs.")
+    harness.store_claims([claim], session_id=state.session.id)
+
+    with pytest.raises(ValueError, match="supported judgments for broad claims"):
+        record_judgment(
+            state=state,
+            claim_id=claim.id,
+            status=ClaimStatus.SUPPORTED,
+            contradiction_searched=True,
+        )
 
 
 def test_change_impact_session_can_store_change_context(tmp_path: Path) -> None:

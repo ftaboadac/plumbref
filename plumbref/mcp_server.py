@@ -38,6 +38,7 @@ def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
         budget_mode: str | None = None,
         output_modes: list[str] | None = None,
         template_id: str | None = None,
+        template_values: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Start a verification session."""
         modes = [OutputMode(output_mode) for output_mode in output_modes] if output_modes else None
@@ -51,6 +52,7 @@ def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
             budget_mode=BudgetMode(budget_mode) if budget_mode else None,
             output_modes=modes,
             template_id=template_id,
+            template_values=template_values,
         )
         return state.model_dump(mode="json")
 
@@ -136,6 +138,7 @@ def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
         session_id: str | None = None,
         summary: str = "",
         evidence_category: str | None = None,
+        include_excerpt: bool | None = None,
     ) -> dict[str, Any]:
         """Read a bounded source snippet for one claim. Use search results to choose file and line ranges."""
         state = HARNESS.get_state(session_id)
@@ -149,6 +152,7 @@ def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
             end_line=end_line,
             summary=summary,
             evidence_category=evidence_category,
+            include_excerpt=include_excerpt,
         )
         return snippet.model_dump(mode="json")
 

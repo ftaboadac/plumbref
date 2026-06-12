@@ -36,6 +36,19 @@ Add Plumbref as a stdio MCP server for the repository:
 plumbref mcp --repo-root /path/to/repo
 ```
 
+The easiest setup path is:
+
+```shell
+cd /path/to/repo
+plumbref init
+plumbref doctor
+```
+
+`plumbref init` creates a starter `.plumbref.toml` if one does not already
+exist, prints copy-paste MCP JSON, and prints the recommended agent
+instructions. `plumbref doctor` checks local readiness: repo root, ripgrep,
+config loading, template loading, and report-path writability.
+
 Generic MCP server config:
 
 ```json
@@ -84,14 +97,18 @@ Workflow:
 1. Choose the closest Plumbref template. Use generic_verification if no
    specialized template fits.
 2. Start a Plumbref session with the user's question, the draft answer or
-   hypothesis, the verification mode, budget mode, and selected template_id.
+   hypothesis, the verification mode, budget mode, selected template_id, and
+   concrete template_values for placeholders such as flow_name, field_name,
+   changed_file, or changed_symbol.
 3. Break the draft answer into atomic claims. Avoid bundling multiple behaviors
    into one claim.
 4. Search narrowly for each claim using the template's required searches.
 5. Run contradiction searches before marking a claim supported, especially when
    the wording uses only, always, never, all, none, or guarantees.
 6. Read bounded snippets only around relevant source lines. Tag snippets with
-   the closest template evidence_category when possible.
+   the closest template evidence_category when possible. Cache hits and reused
+   evidence may return compact references; ask for include_excerpt=true only
+   when source text needs to be inspected again.
 7. Record conservative judgments. Use supported only when cited evidence
    supports the claim as written and a contradiction pass was completed.
 8. Render the Plumbref report and summarize it in chat.
@@ -150,6 +167,11 @@ Agent starts:
   "answer": "The cleanup job deletes inactive accounts after checking retention rules.",
   "mode": "explanation",
   "template_id": "explain_flow",
+  "template_values": {
+    "flow_name": "nightly account cleanup",
+    "entry_point": "cleanup job",
+    "main_entity": "account"
+  },
   "budget_mode": "normal",
   "output_modes": ["engineer", "json"]
 }
@@ -191,6 +213,11 @@ Agent starts:
   "answer": "The move may affect direct reads, writes, API payloads, migrations, and tests.",
   "mode": "scenario",
   "template_id": "field_migration",
+  "template_values": {
+    "field_name": "customer_external_id",
+    "source_owner": "Account",
+    "target_owner": "AccountConnection"
+  },
   "budget_mode": "normal",
   "output_modes": ["engineer", "json"]
 }
@@ -232,6 +259,10 @@ Agent starts:
   "answer": "The change appears limited to report formatting.",
   "mode": "change_impact",
   "template_id": "change_impact",
+  "template_values": {
+    "changed_file": "path/to/changed_file.ext",
+    "changed_symbol": "changed_symbol_name"
+  },
   "budget_mode": "normal",
   "output_modes": ["engineer", "json"]
 }

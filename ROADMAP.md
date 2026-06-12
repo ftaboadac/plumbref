@@ -117,6 +117,7 @@ Add stricter read controls:
 
 Add token-aware report data:
 
+- [x] Record basic searches, file reads, snippet reads, and unsupported or qualified claim counts.
 - [ ] Record estimated excerpt characters per claim.
 - [ ] Record avoided reads, cache hits, and skipped broad searches.
 - [ ] Show why a claim stopped at `uncertain`, `not_found`, or `too_broad`.
@@ -304,7 +305,7 @@ Goal: improve developer ergonomics only after the agent workflow is strong.
 
 Possible additions:
 
-- [ ] `plumbref init` to create config and examples.
+- [x] `plumbref init` to create config and examples.
 - [ ] HTML report rendering.
 - [ ] Local report viewer.
 - [ ] CLI smoke-test helpers for templates, only if they make development and

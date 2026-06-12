@@ -9,6 +9,7 @@ from plumbref.budgets import (
     ensure_can_search,
     ensure_reference_depth,
 )
+from plumbref.cache import read_json, repo_state_fingerprint, stable_cache_key, write_json
 from plumbref.config import PlumbrefConfig
 from plumbref.models import SearchMatch, SearchTrace, SessionState
 from plumbref.privacy import redact_text
@@ -25,6 +26,13 @@ def search_repo(
 ) -> SearchTrace:
     claim = state.claims[claim_id]
     command = build_rg_command(state.session.repo_root, config, query, max_results)
+    cache_key = search_cache_key(
+        state=state,
+        config=config,
+        query=query,
+        max_results=max_results,
+    )
+    cache_path = config.cache_path / "search" / f"{cache_key}.json"
     started = time.monotonic()
     try:
         ensure_can_search(claim, state.budget)
@@ -36,8 +44,24 @@ def search_repo(
             command=command,
             elapsed_ms=0,
             budget_exhausted=True,
+            cache_key=cache_key,
         )
 
+    if cached_payload := read_json(cache_path):
+        trace = SearchTrace.model_validate(
+            {
+                **cached_payload,
+                "claim_id": claim_id,
+                "command": command,
+                "cache_hit": True,
+                "cache_key": cache_key,
+            }
+        )
+        state.cache_stats.search_hits += 1
+        state.traces.append(trace)
+        return trace
+
+    state.cache_stats.search_misses += 1
     completed = subprocess.run(
         command,
         cwd=state.session.repo_root,
@@ -67,6 +91,22 @@ def search_repo(
         matches=matches,
         elapsed_ms=elapsed_ms,
         truncated=len(matches) >= max_results,
+        cache_key=cache_key,
+    )
+    write_json(
+        cache_path,
+        {
+            "claim_id": claim_id,
+            "query": trace.query,
+            "command": trace.command,
+            "matched_files": trace.matched_files,
+            "matches": [match.model_dump(mode="json") for match in trace.matches],
+            "elapsed_ms": trace.elapsed_ms,
+            "truncated": trace.truncated,
+            "budget_exhausted": trace.budget_exhausted,
+            "cache_hit": False,
+            "cache_key": cache_key,
+        },
     )
     state.traces.append(trace)
     return trace
@@ -89,6 +129,7 @@ def build_rg_command(
     ]
     for ignored_path in config.ignored_paths:
         command.extend(["--glob", f"!{ignored_path}/**"])
+    command.append("--")
     command.append(query)
     command.append(str(repo_root))
     return command
@@ -129,3 +170,25 @@ def unique_matched_files(matches: list[SearchMatch]) -> list[str]:
         if match.file not in matched_files:
             matched_files.append(match.file)
     return matched_files
+
+
+def search_cache_key(
+    *,
+    state: SessionState,
+    config: PlumbrefConfig,
+    query: str,
+    max_results: int,
+) -> str:
+    if state.repo_state_fingerprint is None:
+        state.repo_state_fingerprint = repo_state_fingerprint(state.session.repo_root, config.ignored_paths)
+    return stable_cache_key(
+        {
+            "version": 1,
+            "kind": "search",
+            "query": query,
+            "max_results": max_results,
+            "ignored_paths": sorted(config.ignored_paths),
+            "privacy_patterns": config.privacy_patterns,
+            "repo_state": state.repo_state_fingerprint,
+        }
+    )

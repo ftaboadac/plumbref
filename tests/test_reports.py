@@ -15,9 +15,10 @@ from plumbref.models import (
     ClaimWorkItem,
     OutputMode,
     RiskLevel,
+    SearchTrace,
     VerificationMode,
 )
-from plumbref.reports import render_report
+from plumbref.reports import estimate_tokens, format_excerpt, render_report
 from plumbref.sessions import PlumbrefHarness
 
 
@@ -39,6 +40,7 @@ def test_report_renders_markdown_and_json(tmp_path: Path) -> None:
     )
     harness.store_claims([claim], session_id=state.session.id)
     config = load_config(repo_root)
+    config.cache_path = tmp_path / "cache"
     config.report_path = tmp_path
     snippet = read_evidence(
         state=state,
@@ -62,8 +64,31 @@ def test_report_renders_markdown_and_json(tmp_path: Path) -> None:
 
     assert report.json_report["verdict"] == "Supported"
     assert "Support-Safe Summary" in report.markdown
+    assert "## Measurement" in report.markdown
     assert "```text" in report.markdown
     assert '"reason": "missing provider_id"' in report.markdown
+    assert report.json_report["measurement"]["claims_total"] == 1
+    assert report.json_report["measurement"]["evidence_snippets_read"] == 1
+    assert report.json_report["measurement"]["source_text_chars_returned"] > 0
+    assert "Source-token estimate:" in report.markdown
+    assert report.json_report["measurement"]["token_estimate"]["returned_evidence_estimated_tokens"] > 0
+    assert report.json_report["measurement"]["token_estimate"]["full_cited_files_estimated_tokens"] > 0
+
+
+def test_estimate_tokens_rounds_up_from_character_count() -> None:
+    """Token estimates use a simple conservative chars/4 approximation."""
+    assert estimate_tokens(0) == 0
+    assert estimate_tokens(1) == 1
+    assert estimate_tokens(4) == 1
+    assert estimate_tokens(5) == 2
+
+
+def test_format_excerpt_uses_longer_fence_when_excerpt_contains_backticks() -> None:
+    """Markdown evidence snippets remain readable when source contains code fences."""
+    lines = format_excerpt("```shell\nplumbref init\n```")
+
+    assert lines[1] == "    ````text"
+    assert lines[-1] == "    ````"
 
 
 def test_json_report_redacts_sensitive_text(tmp_path: Path) -> None:
@@ -247,4 +272,111 @@ def test_change_impact_report_renders_scope_and_safe_statement(tmp_path: Path) -
 
     assert "## Change Scope" in report.markdown
     assert "## Safer Impact Statement" in report.markdown
+    assert "Unsupported or qualified claims caught: 1 (too_broad=1)" in report.markdown
     assert report.json_report["change_context"]["changed_files"] == ["app.py"]
+    assert report.json_report["measurement"]["too_broad_claims"] == 1
+    assert report.json_report["measurement"]["unsupported_or_qualified_claims"] == 1
+
+
+def test_report_quality_tracks_template_completion_and_next_checks(tmp_path: Path) -> None:
+    """Reports expose observable quality checks for template completion."""
+    repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
+    harness = PlumbrefHarness()
+    state = harness.start_session(
+        repo_root=repo_root,
+        question="How does this flow work?",
+        answer="The job always skips missing providers.",
+        template_id="explain_flow",
+        template_values={"flow_name": "run_scheduled_job"},
+    )
+    claim = ClaimWorkItem(
+        text="The job always skips missing providers.",
+        claim_type=ClaimType.BEHAVIOR,
+    )
+    harness.store_claims([claim], session_id=state.session.id)
+    state.traces.append(
+        SearchTrace(
+            claim_id=claim.id,
+            query="run_scheduled_job test",
+            command=["rg", "run_scheduled_job test"],
+            matched_files=["app.py"],
+            elapsed_ms=1,
+        )
+    )
+    config = load_config(repo_root)
+    config.cache_path = tmp_path / "cache"
+    config.report_path = tmp_path
+    snippet = read_evidence(
+        state=state,
+        config=config,
+        claim_id=claim.id,
+        file="app.py",
+        start_line=8,
+        end_line=11,
+        summary="run_scheduled_job returns skipped when provider_id is missing.",
+        evidence_category="main implementation path",
+    )
+    record_judgment(
+        state=state,
+        claim_id=claim.id,
+        status=ClaimStatus.SUPPORTED,
+        evidence_ids=[snippet.id],
+        reasoning_summary="The implementation supports the narrower function behavior.",
+        contradiction_searched=True,
+        contradiction_notes="Searched for tests; no global guarantee beyond the cited function was established.",
+    )
+
+    report = render_report(state=state, config=config)
+
+    quality = report.json_report["quality"]
+    assert "## Verification Quality" in report.markdown
+    assert quality["score"] < 100
+    assert quality["checklist"]["required_searches"][0]["passed"] is True
+    assert any(
+        item["resolved_pattern"] == "run_scheduled_job error"
+        for item in quality["checklist"]["contradiction_searches"]
+    )
+    assert any(
+        item == "Run or record contradiction search: run_scheduled_job error."
+        for item in quality["next_checks"]
+    )
+    assert quality["broad_claims"][0]["terms"] == ["always"]
+    assert quality["safe_answer"]["supported"][0]["text"] == "The job always skips missing providers."
+
+
+def test_report_quality_requires_template_values_for_placeholder_only_searches() -> None:
+    """Placeholder-only template checks do not pass from unrelated non-empty searches."""
+    repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
+    harness = PlumbrefHarness()
+    state = harness.start_session(
+        repo_root=repo_root,
+        question="How does this flow work?",
+        answer="The job skips missing providers.",
+        template_id="explain_flow",
+    )
+    claim = ClaimWorkItem(
+        text="The job skips missing providers.",
+        claim_type=ClaimType.BEHAVIOR,
+    )
+    harness.store_claims([claim], session_id=state.session.id)
+    state.traces.append(
+        SearchTrace(
+            claim_id=claim.id,
+            query="run_scheduled_job",
+            command=["rg", "run_scheduled_job"],
+            matched_files=["app.py"],
+            elapsed_ms=1,
+        )
+    )
+    config = load_config(repo_root)
+
+    report = render_report(state=state, config=config, write_files=False)
+
+    first_required_search = report.json_report["quality"]["checklist"]["required_searches"][0]
+    assert first_required_search["pattern"] == "{flow_name}"
+    assert first_required_search["passed"] is False
+    assert first_required_search["missing_placeholders"] == ["flow_name"]
+    assert any(
+        item == "Provide template value(s) for flow_name before checking required search: {flow_name}."
+        for item in report.json_report["quality"]["next_checks"]
+    )

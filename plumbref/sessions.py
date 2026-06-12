@@ -34,6 +34,7 @@ class PlumbrefHarness:
         budget_mode: BudgetMode | None = None,
         output_modes: list[OutputMode] | None = None,
         template_id: str | None = None,
+        template_values: dict[str, str] | None = None,
     ) -> SessionState:
         resolved_repo_root = repo_root.expanduser().resolve()
         config = load_config(resolved_repo_root, config_path)
@@ -59,6 +60,7 @@ class PlumbrefHarness:
             mode=mode,
             scenario=scenario,
             template=template,
+            template_values=template_values or {},
             budget_mode=resolved_budget_mode,
             output_modes=resolved_output_modes,
         )

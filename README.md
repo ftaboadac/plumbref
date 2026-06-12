@@ -109,8 +109,19 @@ rg --version
 Then add Plumbref to your MCP client configuration. See [MCP Setup](#mcp-setup)
 for the command and JSON shape.
 
+Fast setup from a repository checkout:
+
+```shell
+cd /path/to/repo
+plumbref init
+plumbref doctor
+```
+
 For agent-specific usage guidance, recommended instructions, and conversational
 examples, see [Agent Usage Guide](docs/agent-usage.md).
+
+For public-demo readiness, honest positioning, and the dogfood demo, see
+[Launch Checklist](docs/launch-checklist.md).
 
 ## Config
 
@@ -150,6 +161,26 @@ template_paths = [
 they are absolute paths.
 
 ## MCP Setup
+
+The quickest path is to let Plumbref print the repo-specific MCP config and
+agent instructions:
+
+```shell
+cd /path/to/repo
+plumbref init
+```
+
+Then verify local readiness:
+
+```shell
+plumbref doctor
+```
+
+For an MCP startup check:
+
+```shell
+plumbref doctor --check-mcp-startup
+```
 
 Plumbref is a stdio MCP server. Any MCP-capable client can launch it with:
 
@@ -263,6 +294,11 @@ Agents can start a session with a template:
   "answer": "The field move may affect job enqueueing and payload builders.",
   "mode": "scenario",
   "template_id": "field_migration",
+  "template_values": {
+    "field_name": "provider_id",
+    "source_owner": "CurrentOwner",
+    "target_owner": "TargetOwner"
+  },
   "budget_mode": "normal",
   "output_modes": ["engineer", "json"]
 }
@@ -414,8 +450,10 @@ Record explicit changed files:
 }
 ```
 
-Claims containing absolute language such as "only", "always", or "never"
-require broader contradiction searches before they can be treated as supported.
+Claims containing absolute language such as "only", "always", "never", "all",
+"every", or "guarantee" are detected automatically. They require broader
+contradiction checks and explicit contradiction notes before they can be treated
+as supported.
 
 ## Status Semantics
 
@@ -437,6 +475,22 @@ By default, reports are written under:
 .cache/plumbref/reports/
 ```
 
+Reports include a verification-quality summary with an observable completion
+score, template checklist status, broad-claim findings, recommended next
+checks, and safer wording assembled from supported and qualified claims. The
+score is deterministic process telemetry: it shows which recorded checks are
+complete, not whether an LLM agrees with the answer. Template checks that use
+placeholders require concrete `template_values`; unresolved placeholders are
+reported as next checks instead of being treated as complete.
+
+Searches are cached by query/options and repository state. Evidence snippets
+are cached by file path, line range, file hash, and privacy settings, with
+stable evidence IDs so repeated investigations can reuse unchanged snippets.
+Cache hits and in-session evidence reuse can return compact evidence
+references without repasting source text; agents can request the excerpt again
+only when they need to inspect it. Reports expose cache hit, miss, reuse, and
+source-text-returned metrics.
+
 Generated reports and caches are ignored by the project `.gitignore`.
 
 Checked-in example reports:
@@ -444,12 +498,33 @@ Checked-in example reports:
 - [Explanation report](examples/reports/explanation.md)
 - [Scenario report](examples/reports/scenario.md)
 - [Change-impact report](examples/reports/change-impact.md)
+- [Dogfood template-loading demo](examples/reports/plumbref-template-loading-demo.md)
+- [Real MCP template-loading report](examples/reports/real-template-loading-mcp.md)
+- [Real MCP template_id migration report](examples/reports/real-template-id-migration-mcp.md)
+- [Real MCP onboarding change-impact report](examples/reports/real-onboarding-change-impact-mcp.md)
+
+For aggregate measurements from the real MCP runs, see
+[Real Workflow Test Results](docs/real-workflow-test-results.md).
+For a sanitized external private-repo validation, see
+[External Private Repo Validation](docs/external-private-repo-validation.md).
 
 ## Development CLI
 
 The CLI is primarily for local smoke tests, debugging, and report rendering.
 For normal usage, connect an MCP-capable agent to Plumbref and ask questions in
 chat.
+
+Initialize a repo and print MCP setup:
+
+```shell
+plumbref init --repo-root /path/to/repo
+```
+
+Check local readiness:
+
+```shell
+plumbref doctor --repo-root /path/to/repo
+```
 
 Run a local smoke test:
 

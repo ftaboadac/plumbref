@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
@@ -107,6 +108,15 @@ class BudgetUsage(BaseModel):
     reference_depth: int = 0
 
 
+class CacheStats(BaseModel):
+    search_hits: int = 0
+    search_misses: int = 0
+    evidence_hits: int = 0
+    evidence_misses: int = 0
+    evidence_reuses: int = 0
+    source_text_chars_returned: int = 0
+
+
 class ChangedSymbol(BaseModel):
     name: str = Field(min_length=1)
     kind: str = "unknown"
@@ -139,6 +149,7 @@ class VerificationSession(BaseModel):
     mode: VerificationMode = VerificationMode.EXPLANATION
     scenario: str | None = None
     template: VerificationTemplate | None = None
+    template_values: dict[str, str] = Field(default_factory=dict)
     change_context: ChangeContext | None = None
     budget_mode: BudgetMode = BudgetMode.NORMAL
     output_modes: list[OutputMode] = Field(default_factory=lambda: [OutputMode.ENGINEER])
@@ -162,6 +173,35 @@ class ClaimWorkItem(BaseModel):
     status: ClaimStatus = ClaimStatus.UNCERTAIN
     usage: BudgetUsage = Field(default_factory=BudgetUsage)
 
+    @model_validator(mode="after")
+    def detect_absolute_language(self) -> ClaimWorkItem:
+        detected = detect_broad_language(self.text)
+        existing = [term.lower() for term in self.absolute_language]
+        self.absolute_language = list(dict.fromkeys([*existing, *detected]))
+        return self
+
+
+BROAD_LANGUAGE_TERMS = (
+    "all",
+    "always",
+    "every",
+    "guarantee",
+    "guaranteed",
+    "guarantees",
+    "never",
+    "none",
+    "only",
+)
+
+
+def detect_broad_language(text: str) -> list[str]:
+    normalized = text.lower()
+    return [
+        term
+        for term in BROAD_LANGUAGE_TERMS
+        if re.search(rf"\b{re.escape(term)}\b", normalized)
+    ]
+
 
 class SearchMatch(BaseModel):
     file: str
@@ -178,23 +218,33 @@ class SearchTrace(BaseModel):
     elapsed_ms: int
     truncated: bool = False
     budget_exhausted: bool = False
+    cache_hit: bool = False
+    cache_key: str | None = None
 
 
 class EvidenceSnippet(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     claim_id: str
+    claim_ids: list[str] = Field(default_factory=list)
     file: str
     start_line: int = Field(gt=0)
     end_line: int = Field(gt=0)
     excerpt: str
+    excerpt_returned: bool = True
     summary: str = ""
     evidence_category: str | None = None
     sha256: str
+    cache_hit: bool = False
+    cache_key: str | None = None
 
     @model_validator(mode="after")
     def validate_line_order(self) -> EvidenceSnippet:
         if self.end_line < self.start_line:
             raise ValueError("end_line must be greater than or equal to start_line")
+        if not self.claim_ids:
+            self.claim_ids = [self.claim_id]
+        elif self.claim_id not in self.claim_ids:
+            self.claim_ids.insert(0, self.claim_id)
         return self
 
 
@@ -232,3 +282,5 @@ class SessionState(BaseModel):
     traces: list[SearchTrace] = Field(default_factory=list)
     evidence: dict[str, EvidenceSnippet] = Field(default_factory=dict)
     judgments: dict[str, Judgment] = Field(default_factory=dict)
+    cache_stats: CacheStats = Field(default_factory=CacheStats)
+    repo_state_fingerprint: str | None = None

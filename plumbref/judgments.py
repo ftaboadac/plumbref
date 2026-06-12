@@ -18,6 +18,13 @@ def record_judgment(
     missing_evidence = [evidence_id for evidence_id in resolved_evidence_ids if evidence_id not in state.evidence]
     if missing_evidence:
         raise ValueError(f"unknown evidence ids: {', '.join(missing_evidence)}")
+    claim = state.claims[claim_id]
+    if status == ClaimStatus.SUPPORTED and claim.absolute_language and not contradiction_notes.strip():
+        terms = ", ".join(claim.absolute_language)
+        raise ValueError(
+            "supported judgments for broad claims require contradiction_notes "
+            f"explaining coverage for: {terms}"
+        )
 
     judgment = Judgment(
         claim_id=claim_id,
@@ -29,5 +36,5 @@ def record_judgment(
         contradiction_notes=contradiction_notes,
     )
     state.judgments[claim_id] = judgment
-    state.claims[claim_id].status = status
+    claim.status = status
     return judgment
