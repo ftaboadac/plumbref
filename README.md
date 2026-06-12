@@ -1,6 +1,15 @@
 # [Plumbref](https://plumbref.vercel.app)
 
+![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
+![MCP](https://img.shields.io/badge/MCP-supported-blue)
+![Local first](https://img.shields.io/badge/local--first-no%20API%20key-green)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 Plumbref is a local verification harness for coding agents.
+
+It gives agents an evidence gate: before they answer confidently, they break
+the answer into claims, search the repository, read bounded source snippets,
+record conservative judgments, and return an inspectable report.
 
 Set it up once through MCP, then ask natural questions about your repository:
 
@@ -16,10 +25,8 @@ What should we consider if we move customer_external_id from Account to AccountC
 Could this code change affect downstream consumers or adjacent flows?
 ```
 
-Plumbref guides the agent to break answers into claims, search narrowly, read
-bounded source evidence, record conservative judgments, and return an
-inspectable report. The goal is fewer "are you sure?" loops, less token waste,
-and answers your team can check.
+The goal is fewer "are you sure?" loops, less blind source reading, and answers
+your team can check.
 
 It exposes:
 
@@ -33,21 +40,64 @@ vector store, hosted service, or UI.
 The intended product surface is conversational agent usage through MCP. The CLI
 exists mainly as a development and validation path.
 
-## Why A Harness
+## Why A Verification Harness
 
 Prompts and skills can ask an agent to be careful, but they do not preserve a
-structured verification trail. Plumbref gives the agent a small protocol:
-
-1. start a verification session
-2. store atomic claims or predicted outcomes
-3. search the repository
-4. read bounded evidence snippets
-5. record conservative judgments
-6. render a report
+structured verification trail. Plumbref gates coding-agent answers against
+recorded source evidence.
 
 The agent still extracts claims and reasons over evidence. Plumbref supplies
 the source-grounded workflow, budgets, redaction, status semantics, and report
 artifacts.
+
+## How It Works
+
+- `init` writes starter config and prints MCP setup instructions.
+- `doctor` checks repo root, ripgrep, config, templates, report-path
+  writability, and optional MCP startup.
+- MCP tools let the agent start a session, store claims, search the repo, read
+  bounded snippets, record judgments, and render a report.
+- Reports show the verification outcome, supported claims, too-broad claims,
+  uncertain areas, source evidence, limits, and safer wording.
+
+## Mental Model
+
+- repository: the local codebase being checked
+- question: the user's natural-language repo question
+- claim: one atomic statement the agent wants to make
+- evidence: bounded source snippets read from the repo
+- judgment: `supported`, `too_broad`, `uncertain`, `contradicted`,
+  `not_found`, or `not_verifiable`
+- template: a verification playbook for a class of engineering question
+- report: the source-backed trail the user can inspect
+
+## Batteries Included
+
+- MCP server for agent-driven verification
+- CLI for setup, doctor checks, templates, smoke tests, and report rendering
+- built-in templates for flow explanation, field migration, change impact,
+  downstream consumers, and external integrations
+- Markdown and JSON reports
+- broad-claim detection for words like `only`, `always`, `never`, `all`,
+  `every`, and `guarantee`
+- local repository search through ripgrep
+- source snippet bounds, redaction patterns, budgets, and cache metrics
+
+## Early Dogfood Results
+
+In real MCP runs against this repository:
+
+- 3 sessions
+- 12 claims checked
+- 29 searches run
+- 28 bounded evidence snippets read
+- 12/12 contradiction passes on judged claims
+- 3 unsupported or over-broad claims caught
+
+Plumbref also reduced source text compared with opening every matched file, but
+it does not claim to always use fewer tokens than a careful expert agent. See
+[Real Workflow Test Results](docs/real-workflow-test-results.md) for the
+measurement details and limitations.
 
 ## User Flow
 
@@ -475,13 +525,13 @@ By default, reports are written under:
 .cache/plumbref/reports/
 ```
 
-Reports include a verification-quality summary with an observable completion
-score, template checklist status, broad-claim findings, recommended next
-checks, and safer wording assembled from supported and qualified claims. The
-score is deterministic process telemetry: it shows which recorded checks are
-complete, not whether an LLM agrees with the answer. Template checks that use
-placeholders require concrete `template_values`; unresolved placeholders are
-reported as next checks instead of being treated as complete.
+Reports lead with a verification outcome: whether the agent can answer from
+checked evidence, must qualify the answer, or should avoid the claim as
+written. They also include broad-claim findings, safer wording assembled from
+supported and qualified claims, and the verification scope recorded by the
+selected template. Template checks are scope markers, not a report grade.
+Checks that use placeholders require concrete `template_values`; unresolved
+placeholders stay outside the verified scope instead of being treated as done.
 
 Searches are cached by query/options and repository state. Evidence snippets
 are cached by file path, line range, file hash, and privacy settings, with

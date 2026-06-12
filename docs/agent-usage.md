@@ -116,7 +116,8 @@ Workflow:
 Answering rules:
 - Prefer cited source evidence over confidence.
 - Say what was not checked.
-- If the template checklist is incomplete, qualify the answer.
+- Use the report's answer gate: answer from checked evidence, qualify
+  too-broad claims, and do not claim contradicted or unverifiable parts.
 - If the repo is too large for the current budget, say the result is bounded by
   that budget and suggest a deeper pass.
 - Do not claim global truth from local snippets.

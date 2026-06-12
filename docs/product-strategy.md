@@ -2,29 +2,30 @@
 
 Plumbref has two related but distinct product tracks.
 
-## Track 1: Verification Quality
+## Track 1: Verification Outcome
 
 Goal:
 
-> Make the agent's verification work observable, repeatable, and hard to fake or
-> skip.
+> Make the agent's answer pass through an evidence gate before it is stated with
+> confidence.
 
 This is the track that makes Plumbref meaningfully better than an `AGENTS.md`
 instruction file. `AGENTS.md` can ask an agent to be careful. Plumbref should
 show whether the agent actually did the verification work.
 
-Potential features:
+Implemented features:
 
-- report quality or completeness score
-- template checklist completion tracking
+- answer gate: safe to answer, answer with qualifications, do not claim, or not
+  ready
+- template scope tracking without presenting a percentage grade
 - required searches marked done or missing
 - required evidence categories marked found or missing
 - automatic broad-claim detection for words like `only`, `always`, `never`,
   `all`, `every`, and `guarantee`
 - stricter `supported` rules when a claim uses broad or absolute language
-- recommended next checks when a report is incomplete
+- scoped follow-up checks only when a broader claim needs broader evidence
 - safer-answer generation from supported and qualified claims
-- clearer report summary for what was checked, what was not checked, and what
+- clearer report summary for what can be said, what must be qualified, and what
   should not be claimed
 
 Expected effect:
@@ -37,8 +38,8 @@ Expected effect:
 
 Best public framing:
 
-> AGENTS.md asks the agent to be careful. Plumbref checks whether the agent
-> actually did the verification work.
+> AGENTS.md asks the agent to be careful. Plumbref gates the agent's answer
+> against recorded source evidence.
 
 ## Track 2: Token Optimization
 
@@ -89,10 +90,10 @@ investigation.
 
 Recommended order:
 
-1. Add checklist completion tracking.
+1. Add claim-gated verification outcomes.
 2. Add automatic broad-claim detection.
-3. Add recommended next checks.
-4. Add a report quality/completeness summary.
+3. Add scoped follow-up checks for broader claims.
+4. Add a verification outcome summary.
 5. Improve safer-answer generation.
 6. Add evidence and search caching.
 7. Add reused-evidence reporting.

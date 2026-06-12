@@ -61,6 +61,11 @@ def test_search_repo_reuses_cached_results(tmp_path: Path) -> None:
     assert state.cache_stats.search_misses == 1
     assert state.claims[claim.id].usage.searches == 1
 
+    report = render_report(state=state, config=config, write_files=False)
+
+    assert report.json_report["measurement"]["searches_run"] == 1
+    assert report.json_report["measurement"]["search_traces_recorded"] == 2
+
 
 def test_search_repo_handles_queries_that_start_with_dash(tmp_path: Path) -> None:
     """CLI flag strings are treated as search patterns, not rg options."""

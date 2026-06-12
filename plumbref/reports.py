@@ -106,11 +106,12 @@ def build_markdown_report(
             lines.append(f"Template values: {values}")
     if state.session.mode == VerificationMode.SCENARIO and state.session.scenario:
         lines.extend(["", f"Scenario: {redact_text(state.session.scenario, config.privacy_patterns)}"])
+    lines.extend(["", "## Answer", *user_answer(state, config)])
     if state.session.mode == VerificationMode.CHANGE_IMPACT:
         lines.extend(["", "## Change Scope", *format_change_scope(state, config)])
     if state.session.template:
         lines.extend(["", "## Template Checklist", *format_template_checklist(state, config)])
-    lines.extend(["", "## Verification Quality", *format_quality_summary(payload["quality"])])
+    lines.extend(["", "## Verification Outcome", *format_quality_summary(payload["quality"])])
     lines.extend(["", "## Measurement", *format_measurement_summary(payload["measurement"])])
     lines.extend(["", claim_section_heading(state)])
     rendered_excerpt_ids: set[str] = set()
@@ -187,13 +188,8 @@ def build_markdown_report(
             if len(trace.matches) > 5:
                 lines.append(f"    - Additional matches omitted: {len(trace.matches) - 5}")
 
-    if state.session.mode == VerificationMode.EXPLANATION:
-        lines.extend(["", "## Safe Answer", *explanation_safe_answer(state, config)])
-    if state.session.mode == VerificationMode.SCENARIO:
-        lines.extend(["", "## Safe Conclusion", *scenario_safe_conclusion(state, config)])
     if state.session.mode == VerificationMode.CHANGE_IMPACT:
         lines.extend(["", "## Missing / Uncertain Areas", *change_impact_uncertain_areas(state, config)])
-        lines.extend(["", "## Safer Impact Statement", *change_impact_safe_statement(state, config)])
 
     if OutputMode.SUPPORT in modes:
         lines.extend(
@@ -224,7 +220,8 @@ def build_measurement_summary(state: SessionState) -> dict[str, Any]:
     return {
         "claims_total": len(state.claims),
         "claim_status_counts": dict(sorted(status_counts.items())),
-        "searches_run": len(state.traces),
+        "search_traces_recorded": len(state.traces),
+        "searches_run": sum(claim.usage.searches for claim in state.claims.values()),
         "search_matches_returned": sum(len(trace.matches) for trace in state.traces),
         "matched_files": len({file for trace in state.traces for file in trace.matched_files}),
         "evidence_files_read": sum(claim.usage.files for claim in state.claims.values()),
@@ -256,7 +253,11 @@ def format_measurement_summary(measurement: dict[str, Any]) -> list[str]:
     status_text = ", ".join(f"{status}={count}" for status, count in status_counts.items()) or "none"
     lines = [
         f"- Claims: {measurement['claims_total']} ({status_text})",
-        f"- Searches run: {measurement['searches_run']}",
+        (
+            "- Searches: "
+            f"{measurement['searches_run']} run, "
+            f"{measurement['search_traces_recorded']} trace(s) recorded"
+        ),
         (
             "- Search results: "
             f"{measurement['search_matches_returned']} match(es) across "
@@ -499,7 +500,9 @@ def build_quality_summary(state: SessionState) -> dict[str, Any]:
     checks_total = len(checks)
     checks_passed = sum(1 for check in checks if check["passed"])
     score = round((checks_passed / checks_total) * 100) if checks_total else 0
+    answer_gate = build_answer_gate(state, unjudged_claims)
     return {
+        "answer_gate": answer_gate,
         "score": score,
         "grade": quality_grade(score, checks_total),
         "checks_passed": checks_passed,
@@ -527,6 +530,66 @@ def build_quality_summary(state: SessionState) -> dict[str, Any]:
             for claim in broad_claims
         ],
         "safe_answer": build_safe_answer_summary(state),
+    }
+
+
+def build_answer_gate(
+    state: SessionState,
+    unjudged_claims: list[Any],
+) -> dict[str, Any]:
+    claims = list(state.claims.values())
+    status_counts = Counter(claim.status.value for claim in claims)
+    if not claims:
+        return {
+            "status": "not_ready",
+            "label": "Not ready to answer",
+            "summary": "No claims were recorded yet.",
+            "can_answer": False,
+        }
+    if unjudged_claims:
+        return {
+            "status": "not_ready",
+            "label": "Not ready to answer",
+            "summary": f"{len(unjudged_claims)} claim(s) still need judgment.",
+            "can_answer": False,
+        }
+    if status_counts[ClaimStatus.CONTRADICTED.value]:
+        return {
+            "status": "do_not_claim",
+            "label": "Do not claim as written",
+            "summary": "At least one claim is contradicted by source evidence.",
+            "can_answer": False,
+        }
+    if status_counts[ClaimStatus.NOT_VERIFIABLE.value]:
+        return {
+            "status": "answer_with_limits",
+            "label": "Answer with limits",
+            "summary": "Some parts cannot be verified from local source evidence.",
+            "can_answer": True,
+        }
+    qualified_count = sum(
+        status_counts[status.value]
+        for status in (ClaimStatus.TOO_BROAD, ClaimStatus.UNCERTAIN, ClaimStatus.NOT_FOUND)
+    )
+    if qualified_count:
+        return {
+            "status": "answer_with_qualifications",
+            "label": "Answer with qualifications",
+            "summary": f"{qualified_count} claim(s) need narrower wording or qualification.",
+            "can_answer": True,
+        }
+    if status_counts[ClaimStatus.SUPPORTED.value] == len(claims):
+        return {
+            "status": "safe_to_answer",
+            "label": "Safe to answer from checked evidence",
+            "summary": "All recorded claims are supported by cited source evidence.",
+            "can_answer": True,
+        }
+    return {
+        "status": "answer_with_limits",
+        "label": "Answer with limits",
+        "summary": "Use only the parts supported by recorded source evidence.",
+        "can_answer": True,
     }
 
 
@@ -558,13 +621,26 @@ def search_pattern_completion(
     template_values: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     resolved = resolve_pattern(pattern, template_values or {})
+    if resolved["not_applicable_placeholders"]:
+        return {
+            "pattern": pattern,
+            "resolved_pattern": resolved["resolved_pattern"],
+            "missing_placeholders": [],
+            "not_applicable_placeholders": resolved["not_applicable_placeholders"],
+            "literal_tokens": [],
+            "passed": True,
+            "skipped": True,
+            "matched_queries": [],
+        }
     if resolved["missing_placeholders"]:
         return {
             "pattern": pattern,
             "resolved_pattern": resolved["resolved_pattern"],
             "missing_placeholders": resolved["missing_placeholders"],
+            "not_applicable_placeholders": [],
             "literal_tokens": [],
             "passed": False,
+            "skipped": False,
             "matched_queries": [],
         }
     literal_tokens = normalize_tokens(resolved["resolved_pattern"])
@@ -577,14 +653,17 @@ def search_pattern_completion(
         "pattern": pattern,
         "resolved_pattern": resolved["resolved_pattern"],
         "missing_placeholders": [],
+        "not_applicable_placeholders": [],
         "literal_tokens": literal_tokens,
         "passed": bool(matched_queries),
+        "skipped": False,
         "matched_queries": dedupe_preserve_order(matched_queries),
     }
 
 
 def resolve_pattern(pattern: str, template_values: dict[str, str]) -> dict[str, Any]:
     missing: list[str] = []
+    not_applicable: list[str] = []
 
     def replace(match: re.Match[str]) -> str:
         key = match.group(1).strip()
@@ -592,12 +671,28 @@ def resolve_pattern(pattern: str, template_values: dict[str, str]) -> dict[str, 
         if not value:
             missing.append(key)
             return match.group(0)
+        if is_not_applicable_template_value(value):
+            not_applicable.append(key)
+            return value
         return value
 
     resolved = re.sub(r"\{([^}]+)\}", replace, pattern)
     return {
         "resolved_pattern": resolved,
         "missing_placeholders": dedupe_preserve_order(missing),
+        "not_applicable_placeholders": dedupe_preserve_order(not_applicable),
+    }
+
+
+def is_not_applicable_template_value(value: str) -> bool:
+    normalized = normalize_check_text(value)
+    return normalized in {
+        "na",
+        "n a",
+        "none",
+        "not applicable",
+        "not_applicable",
+        "no external system",
     }
 
 
@@ -667,10 +762,36 @@ def build_safe_answer_summary(state: SessionState) -> dict[str, Any]:
 
 
 def format_quality_summary(quality: dict[str, Any]) -> list[str]:
+    answer_gate = quality["answer_gate"]
     lines = [
-        f"- Score: {quality['score']}% ({quality['grade']})",
-        f"- Completion: {quality['summary']}",
+        f"- Answer gate: {answer_gate['label']}",
+        f"- Why: {answer_gate['summary']}",
     ]
+    safe_answer = quality["safe_answer"]
+    supported = safe_answer["supported"]
+    qualified = safe_answer["qualified"]
+    avoid = safe_answer["avoid"]
+    lines.append(
+        "- Claim outcome: "
+        f"{len(supported)} supported, "
+        f"{len(qualified)} qualified, "
+        f"{len(avoid)} avoid"
+    )
+    if supported:
+        lines.append("- Safe to say:")
+        for item in supported[:6]:
+            lines.append(f"  - {item['text']}")
+    if qualified:
+        lines.append("- Say with qualification:")
+        for item in qualified[:6]:
+            suffix = f" Limits: {item['limits']}" if item["limits"] else ""
+            lines.append(f"  - {item['status']}: {item['text']}{suffix}")
+    if avoid:
+        lines.append("- Do not claim:")
+        for item in avoid[:6]:
+            suffix = f" Limits: {item['limits']}" if item["limits"] else ""
+            lines.append(f"  - {item['status']}: {item['text']}{suffix}")
+
     if quality["broad_claims"]:
         lines.append("- Broad claims detected:")
         for claim in quality["broad_claims"]:
@@ -679,7 +800,7 @@ def format_quality_summary(quality: dict[str, Any]) -> list[str]:
     else:
         lines.append("- Broad claims detected: none")
 
-    lines.append("- What was checked:")
+    lines.append("- Verification scope recorded:")
     if quality["checked"]:
         for item in quality["checked"][:12]:
             lines.append(f"  - {item}")
@@ -688,7 +809,7 @@ def format_quality_summary(quality: dict[str, Any]) -> list[str]:
     else:
         lines.append("  - none")
 
-    lines.append("- What was not checked:")
+    lines.append("- Outside this answer's verified scope:")
     if quality["not_checked"]:
         for item in quality["not_checked"][:12]:
             lines.append(f"  - {item}")
@@ -697,7 +818,7 @@ def format_quality_summary(quality: dict[str, Any]) -> list[str]:
     else:
         lines.append("  - none")
 
-    lines.append("- Recommended next checks:")
+    lines.append("- To make a broader claim, verify:")
     if quality["next_checks"]:
         for item in quality["next_checks"]:
             lines.append(f"  - {item}")
@@ -911,6 +1032,112 @@ def support_summary(state: SessionState) -> str:
         f"{len(supported)} claim(s) have direct source support. "
         f"{len(risky)} claim(s) need qualification or engineering confirmation before external use."
     )
+
+
+def user_answer(state: SessionState, config: PlumbrefConfig) -> list[str]:
+    if state.session.mode == VerificationMode.SCENARIO:
+        return scenario_user_answer(state, config)
+    if state.session.mode == VerificationMode.CHANGE_IMPACT:
+        return change_impact_user_answer(state, config)
+    return explanation_user_answer(state, config)
+
+
+def explanation_user_answer(state: SessionState, config: PlumbrefConfig) -> list[str]:
+    if not state.claims:
+        return ["No source-backed answer is available yet."]
+
+    return natural_answer_lines(
+        state,
+        config,
+        supported_prefix="Based on the checked evidence:",
+        qualified_prefix="Important qualification:",
+        avoid_prefix="Do not claim:",
+        no_supported="Plumbref did not find a source-backed answer yet.",
+    )
+
+
+def change_impact_user_answer(state: SessionState, config: PlumbrefConfig) -> list[str]:
+    if not state.claims:
+        return ["No source-backed impact answer is available yet."]
+
+    return natural_answer_lines(
+        state,
+        config,
+        supported_prefix="Based on the checked evidence, the impact is:",
+        qualified_prefix="Important qualification:",
+        avoid_prefix="Do not describe the impact this way:",
+        no_supported="Plumbref did not find enough source-backed evidence to state the impact yet.",
+    )
+
+
+def scenario_user_answer(state: SessionState, config: PlumbrefConfig) -> list[str]:
+    if not state.claims:
+        return ["No source-backed scenario conclusion is available yet."]
+
+    return natural_answer_lines(
+        state,
+        config,
+        supported_prefix="Based on the checked evidence, the expected outcome is:",
+        qualified_prefix="Important qualification:",
+        avoid_prefix="Do not rely on this outcome:",
+        no_supported="Plumbref did not find enough source-backed evidence to state the scenario outcome yet.",
+    )
+
+
+def natural_answer_lines(
+    state: SessionState,
+    config: PlumbrefConfig,
+    *,
+    supported_prefix: str,
+    qualified_prefix: str,
+    avoid_prefix: str,
+    no_supported: str,
+) -> list[str]:
+    safe_answer = build_safe_answer_summary(state)
+    supported = safe_answer["supported"]
+    qualified = safe_answer["qualified"]
+    avoid = safe_answer["avoid"]
+    lines: list[str] = []
+
+    if supported:
+        lines.append(
+            f"{supported_prefix} "
+            + " ".join(
+                ensure_sentence(redact_text(item["text"], config.privacy_patterns))
+                for item in supported[:6]
+            )
+        )
+    else:
+        lines.append(no_supported)
+
+    if qualified:
+        lines.append(
+            f"{qualified_prefix} "
+            + " ".join(qualified_answer_sentence(item, config) for item in qualified[:4])
+        )
+    if avoid:
+        lines.append(
+            f"{avoid_prefix} "
+            + " ".join(qualified_answer_sentence(item, config) for item in avoid[:4])
+        )
+    return lines
+
+
+def qualified_answer_sentence(item: dict[str, Any], config: PlumbrefConfig) -> str:
+    limits = redact_text(item["limits"], config.privacy_patterns)
+    if limits:
+        return ensure_sentence(limits)
+    text = redact_text(item["text"], config.privacy_patterns)
+    return ensure_sentence(f"{item['status']}: {text}")
+
+
+def ensure_sentence(text: str) -> str:
+    stripped = text.strip()
+    if not stripped:
+        return ""
+    if stripped[-1] in ".!?":
+        return stripped
+    return f"{stripped}."
 
 
 def explanation_safe_answer(state: SessionState, config: PlumbrefConfig) -> list[str]:

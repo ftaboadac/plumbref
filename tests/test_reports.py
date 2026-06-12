@@ -186,15 +186,23 @@ def test_scenario_report_labels_predicted_outcomes(tmp_path: Path) -> None:
     assert "## Predicted Outcomes" in report.markdown
     assert "Scenario: run_scheduled_job receives provider_id=None." in report.markdown
     assert "Predicted outcome: The scheduled job is skipped." in report.markdown
-    assert "## Safe Conclusion" in report.markdown
-    assert "Supported outcome(s):" in report.markdown
-    assert "- The scheduled job is skipped." in report.markdown
-    assert "Needs qualification:" in report.markdown
-    assert "too_broad: All scheduled jobs are skipped." in report.markdown
+    assert "## Answer" in report.markdown
+    assert "## Safe Conclusion" not in report.markdown
+    assert (
+        "Based on the checked evidence, the expected outcome is: "
+        "The scheduled job is skipped."
+        in report.markdown
+    )
+    assert (
+        "Important qualification: Say run_scheduled_job is skipped when provider_id is missing; "
+        "do not generalize to every job."
+        in report.markdown
+    )
     assert (
         "Limits: Say run_scheduled_job is skipped when provider_id is missing; do not generalize to every job."
         in report.markdown
     )
+    assert report.markdown.index("## Answer") < report.markdown.index("## Predicted Outcomes")
     assert report.json_report["mode"] == "scenario"
 
 
@@ -270,16 +278,28 @@ def test_change_impact_report_renders_scope_and_safe_statement(tmp_path: Path) -
 
     report = render_report(state=state, config=config)
 
+    assert "## Answer" in report.markdown
     assert "## Change Scope" in report.markdown
-    assert "## Safer Impact Statement" in report.markdown
+    assert "## Safer Impact Statement" not in report.markdown
+    assert (
+        "Based on the checked evidence, the impact is: "
+        "The change affects report wording from items to records."
+        in report.markdown
+    )
+    assert (
+        "Important qualification: Say the shown changed symbol affects report wording; "
+        "verify callers before claiming it is the only effect."
+        in report.markdown
+    )
+    assert report.markdown.index("## Answer") < report.markdown.index("## Change Scope")
     assert "Unsupported or qualified claims caught: 1 (too_broad=1)" in report.markdown
     assert report.json_report["change_context"]["changed_files"] == ["app.py"]
     assert report.json_report["measurement"]["too_broad_claims"] == 1
     assert report.json_report["measurement"]["unsupported_or_qualified_claims"] == 1
 
 
-def test_report_quality_tracks_template_completion_and_next_checks(tmp_path: Path) -> None:
-    """Reports expose observable quality checks for template completion."""
+def test_report_outcome_tracks_answer_gate_and_scope(tmp_path: Path) -> None:
+    """Reports lead with answer safety while retaining observable scope checks."""
     repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
     harness = PlumbrefHarness()
     state = harness.start_session(
@@ -329,7 +349,16 @@ def test_report_quality_tracks_template_completion_and_next_checks(tmp_path: Pat
     report = render_report(state=state, config=config)
 
     quality = report.json_report["quality"]
-    assert "## Verification Quality" in report.markdown
+    assert "## Answer" in report.markdown
+    assert "## Verification Outcome" in report.markdown
+    assert report.markdown.index("## Answer") < report.markdown.index("## Verification Outcome")
+    assert (
+        "Based on the checked evidence: The job always skips missing providers."
+        in report.markdown
+    )
+    assert "Answer gate: Safe to answer from checked evidence" in report.markdown
+    assert "Score:" not in report.markdown
+    assert quality["answer_gate"]["status"] == "safe_to_answer"
     assert quality["score"] < 100
     assert quality["checklist"]["required_searches"][0]["passed"] is True
     assert any(
@@ -342,6 +371,56 @@ def test_report_quality_tracks_template_completion_and_next_checks(tmp_path: Pat
     )
     assert quality["broad_claims"][0]["terms"] == ["always"]
     assert quality["safe_answer"]["supported"][0]["text"] == "The job always skips missing providers."
+
+
+def test_report_outcome_qualifies_too_broad_claims(tmp_path: Path) -> None:
+    """Too-broad claims make the report answer gate qualified, not low quality."""
+    repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
+    harness = PlumbrefHarness()
+    state = harness.start_session(
+        repo_root=repo_root,
+        question="Does every job skip missing providers?",
+        answer="Every job skips missing providers.",
+        template_id="generic_verification",
+        template_values={
+            "primary_entity": "provider_id",
+            "primary_action": "skip",
+            "claim_keyword": "job",
+        },
+    )
+    claim = ClaimWorkItem(
+        text="Every job skips missing providers.",
+        claim_type=ClaimType.BEHAVIOR,
+    )
+    harness.store_claims([claim], session_id=state.session.id)
+    config = load_config(repo_root)
+    config.cache_path = tmp_path / "cache"
+    snippet = read_evidence(
+        state=state,
+        config=config,
+        claim_id=claim.id,
+        file="app.py",
+        start_line=8,
+        end_line=11,
+        summary="run_scheduled_job skips missing provider_id.",
+        evidence_category="direct implementation",
+    )
+    record_judgment(
+        state=state,
+        claim_id=claim.id,
+        status=ClaimStatus.TOO_BROAD,
+        evidence_ids=[snippet.id],
+        reasoning_summary="Evidence supports one function, not every job.",
+        limits="Say run_scheduled_job skips missing provider_id.",
+    )
+
+    report = render_report(state=state, config=config, write_files=False)
+
+    quality = report.json_report["quality"]
+    assert quality["answer_gate"]["status"] == "answer_with_qualifications"
+    assert "Answer gate: Answer with qualifications" in report.markdown
+    assert "Say with qualification:" in report.markdown
+    assert "too_broad: Every job skips missing providers." in report.markdown
 
 
 def test_report_quality_requires_template_values_for_placeholder_only_searches() -> None:
@@ -380,3 +459,45 @@ def test_report_quality_requires_template_values_for_placeholder_only_searches()
         item == "Provide template value(s) for flow_name before checking required search: {flow_name}."
         for item in report.json_report["quality"]["next_checks"]
     )
+
+
+def test_report_quality_skips_not_applicable_template_values() -> None:
+    """Template values such as none are treated as explicitly not applicable."""
+    repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
+    harness = PlumbrefHarness()
+    state = harness.start_session(
+        repo_root=repo_root,
+        question="How does this flow work without an external system?",
+        answer="The job has no external system.",
+        template_id="explain_flow",
+        template_values={
+            "flow_name": "run_scheduled_job",
+            "entry_point": "run_scheduled_job",
+            "main_entity": "Job",
+            "external_system": "none",
+        },
+    )
+    claim = ClaimWorkItem(
+        text="The job has no external system.",
+        claim_type=ClaimType.BEHAVIOR,
+    )
+    harness.store_claims([claim], session_id=state.session.id)
+    state.traces.append(
+        SearchTrace(
+            claim_id=claim.id,
+            query="run_scheduled_job",
+            command=["rg", "run_scheduled_job"],
+            matched_files=["app.py"],
+            elapsed_ms=1,
+        )
+    )
+    config = load_config(repo_root)
+
+    report = render_report(state=state, config=config, write_files=False)
+
+    external_system_check = report.json_report["quality"]["checklist"]["required_searches"][3]
+    assert external_system_check["pattern"] == "{external_system}"
+    assert external_system_check["passed"] is True
+    assert external_system_check["skipped"] is True
+    assert external_system_check["not_applicable_placeholders"] == ["external_system"]
+    assert "Run or record required search: none." not in report.json_report["quality"]["next_checks"]

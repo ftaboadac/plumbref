@@ -63,7 +63,8 @@ Workflow:
 Answering rules:
 - Prefer cited source evidence over confidence.
 - Say what was not checked.
-- If the template checklist is incomplete, qualify the answer.
+- Use the report's answer gate: answer from checked evidence, qualify
+  too-broad claims, and do not claim contradicted or unverifiable parts.
 - Do not claim global truth from local snippets.
 - Do not use Plumbref to inspect production data or external systems.
 """
