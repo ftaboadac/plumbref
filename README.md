@@ -5,6 +5,8 @@
 ![Local first](https://img.shields.io/badge/local--first-no%20API%20key-green)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+![A plumb line suspended over a dark surface](docs/assets/plumbref-readme-hero.png)
+
 Plumbref is a local verification harness for coding agents.
 
 It gives agents an evidence gate: before they answer confidently, they break
