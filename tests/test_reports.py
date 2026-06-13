@@ -14,6 +14,7 @@ from plumbref.models import (
     ClaimType,
     ClaimWorkItem,
     OutputMode,
+    ReportPolicy,
     RiskLevel,
     SearchTrace,
     VerificationMode,
@@ -73,6 +74,115 @@ def test_report_renders_markdown_and_json(tmp_path: Path) -> None:
     assert "Source-token estimate:" in report.markdown
     assert report.json_report["measurement"]["token_estimate"]["returned_evidence_estimated_tokens"] > 0
     assert report.json_report["measurement"]["token_estimate"]["full_cited_files_estimated_tokens"] > 0
+
+
+def test_on_demand_policy_keeps_low_risk_supported_result_inline(tmp_path: Path) -> None:
+    """The default policy does not create files for low-risk fully supported answers."""
+    repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
+    harness = PlumbrefHarness()
+    state = harness.start_session(
+        repo_root=repo_root,
+        question="What happens if provider_id is missing?",
+        answer="The scheduled job is skipped.",
+    )
+    claim = ClaimWorkItem(text="The scheduled job skips work when provider_id is missing.")
+    harness.store_claims([claim], session_id=state.session.id)
+    config = load_config(repo_root)
+    config.cache_path = tmp_path / "cache"
+    config.report_path = tmp_path / "reports"
+    snippet = read_evidence(
+        state=state,
+        config=config,
+        claim_id=claim.id,
+        file="app.py",
+        start_line=9,
+        end_line=11,
+        summary="run_scheduled_job returns skipped when provider_id is missing.",
+    )
+    record_judgment(
+        state=state,
+        claim_id=claim.id,
+        status=ClaimStatus.SUPPORTED,
+        evidence_ids=[snippet.id],
+        reasoning_summary="The function returns a skipped status for missing provider_id.",
+        contradiction_searched=True,
+    )
+
+    report = render_report(state=state, config=config)
+
+    assert report.report_written is False
+    assert report.markdown_path is None
+    assert not config.report_path.exists()
+
+
+def test_on_demand_policy_writes_qualified_result_to_dated_report_path(tmp_path: Path) -> None:
+    """Qualified results create durable local report files and an index entry."""
+    repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
+    harness = PlumbrefHarness()
+    state = harness.start_session(
+        repo_root=repo_root,
+        question="Does every job skip missing providers?",
+        answer="Every job skips missing providers.",
+    )
+    claim = ClaimWorkItem(text="Every job skips missing providers.")
+    harness.store_claims([claim], session_id=state.session.id)
+    config = load_config(repo_root)
+    config.report_path = tmp_path / "reports"
+    record_judgment(
+        state=state,
+        claim_id=claim.id,
+        status=ClaimStatus.TOO_BROAD,
+        reasoning_summary="Evidence supports one function, not every job.",
+        limits="Say run_scheduled_job skips missing provider_id.",
+    )
+
+    report = render_report(state=state, config=config)
+
+    assert report.report_written is True
+    assert report.report_write_reason == "auto_report_due_to_too_broad"
+    dated_report_path = config.report_path / state.session.created_at.date().isoformat()
+    assert report.markdown_path == dated_report_path / f"{state.session.id}.md"
+    assert report.json_path == dated_report_path / f"{state.session.id}.json"
+    assert report.markdown_path.is_file()
+    assert report.json_path.is_file()
+    index = (config.report_path / "index.json").read_text(encoding="utf-8")
+    assert state.session.id in index
+    assert "auto_report_due_to_too_broad" in index
+
+
+def test_manual_policy_requires_explicit_report_write(tmp_path: Path) -> None:
+    """Manual policy suppresses automatic files but still allows forced reports."""
+    repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
+    harness = PlumbrefHarness()
+    state = harness.start_session(
+        repo_root=repo_root,
+        question="Does every job skip missing providers?",
+        answer="Every job skips missing providers.",
+    )
+    claim = ClaimWorkItem(text="Every job skips missing providers.")
+    harness.store_claims([claim], session_id=state.session.id)
+    config = load_config(repo_root)
+    config.report_policy = ReportPolicy.MANUAL
+    config.report_path = tmp_path / "reports"
+    record_judgment(
+        state=state,
+        claim_id=claim.id,
+        status=ClaimStatus.TOO_BROAD,
+        reasoning_summary="Evidence supports one function, not every job.",
+    )
+
+    inline_report = render_report(state=state, config=config)
+    forced_report = render_report(
+        state=state,
+        config=config,
+        write_files=True,
+        report_write_reason="user_requested",
+    )
+
+    assert inline_report.report_written is False
+    assert forced_report.report_written is True
+    assert forced_report.report_write_reason == "user_requested"
+    assert forced_report.markdown_path and forced_report.markdown_path.is_file()
 
 
 def test_estimate_tokens_rounds_up_from_character_count() -> None:
@@ -190,7 +300,7 @@ def test_scenario_report_labels_predicted_outcomes(tmp_path: Path) -> None:
     assert "## Safe Conclusion" not in report.markdown
     assert (
         "Based on the checked evidence, the expected outcome is: "
-        "The scheduled job is skipped."
+        "run_scheduled_job returns skipped when provider_id is missing."
         in report.markdown
     )
     assert (

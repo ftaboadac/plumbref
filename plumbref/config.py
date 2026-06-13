@@ -6,7 +6,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from plumbref.models import BudgetMode, OutputMode
+from plumbref.models import BudgetMode, OutputMode, ReportPolicy
 
 
 class ConfigLoadError(ValueError):
@@ -36,6 +36,7 @@ class PlumbrefConfig(BaseModel):
     )
     default_budget_mode: BudgetMode = BudgetMode.NORMAL
     default_output_modes: list[OutputMode] = Field(default_factory=lambda: [OutputMode.ENGINEER])
+    report_policy: ReportPolicy = ReportPolicy.ON_DEMAND
 
     @field_validator("cache_path", "report_path")
     @classmethod

@@ -43,7 +43,7 @@ Before posting, have one demo that shows:
 - searches run
 - files and snippets read
 - supported claims
-- a too-broad, uncertain, contradicted, or not-found claim
+- qualified or uncertain areas, if the evidence calls for them
 - safer final wording
 
 The checked-in dogfood demo is:
@@ -56,8 +56,13 @@ Good claims:
 
 - Plumbref gives coding agents reusable verification playbooks.
 - Plumbref keeps verification local to the repository.
+- Plumbref helps agents answer repo questions with more confidence by forcing
+  source checks before the answer is trusted.
+- Plumbref pushes agents to consider entry points, downstream paths, tests,
+  limits, and broad-claim qualifications.
 - Plumbref records searches, bounded snippets, judgments, and limits.
-- Plumbref helps catch over-broad claims like "only", "always", and "never".
+- Plumbref makes the verification trail visible and repeatable when the answer
+  is risky or needs qualification.
 - Plumbref can reduce blind file reading by making the agent search and read
   through a structured protocol.
 - Plumbref can reuse cached evidence as compact references when source files
@@ -95,9 +100,10 @@ workflow: pick a verification template, extract atomic claims, search the repo,
 read bounded snippets, run contradiction checks, and render a report with
 supported claims, uncertain areas, and safer wording.
 
-It does not prove behavior automatically. The current value is making the
-agent's verification trail visible and catching over-broad claims before they
-turn into confident answers.
+It does not prove behavior automatically. The current value is higher-confidence
+repo answers: Plumbref pushes the agent to check the important source paths,
+record what it considered, and qualify anything the evidence does not fully
+support. The report is just the visible trail of that verification work.
 ```
 
 Demo metrics to include:

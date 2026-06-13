@@ -6,12 +6,14 @@ from math import ceil
 from pathlib import Path
 from typing import Any
 
-from plumbref.cache import write_json
+from plumbref.cache import read_json, write_json
 from plumbref.config import PlumbrefConfig
 from plumbref.models import (
     ClaimStatus,
     OutputMode,
     RenderedReport,
+    ReportPolicy,
+    RiskLevel,
     SessionState,
     VerificationMode,
 )
@@ -23,30 +25,137 @@ def render_report(
     state: SessionState,
     config: PlumbrefConfig,
     output_modes: list[OutputMode] | None = None,
-    write_files: bool = True,
+    write_files: bool | None = None,
+    report_write_reason: str | None = None,
 ) -> RenderedReport:
     modes = output_modes or state.session.output_modes
     payload = build_json_report(state, config)
     markdown = build_markdown_report(state, modes, config)
     verdict = payload["verdict"]
+    resolved_write_files = should_write_report(
+        state=state,
+        config=config,
+        write_files=write_files,
+        report_write_reason=report_write_reason,
+    )
+    resolved_write_reason = report_write_reason or default_report_write_reason(state, config)
 
     markdown_path: Path | None = None
     json_path: Path | None = None
-    if write_files:
-        config.report_path.mkdir(parents=True, exist_ok=True)
-        markdown_path = config.report_path / f"{state.session.id}.md"
-        json_path = config.report_path / f"{state.session.id}.json"
+    if resolved_write_files:
+        dated_report_path = config.report_path / state.session.created_at.date().isoformat()
+        dated_report_path.mkdir(parents=True, exist_ok=True)
+        markdown_path = dated_report_path / f"{state.session.id}.md"
+        json_path = dated_report_path / f"{state.session.id}.json"
         markdown_path.write_text(markdown, encoding="utf-8")
         write_json(json_path, payload)
+        write_report_index_entry(
+            state=state,
+            config=config,
+            markdown_path=markdown_path,
+            json_path=json_path,
+            reason=resolved_write_reason,
+        )
 
     return RenderedReport(
         session_id=state.session.id,
         verdict=verdict,
         markdown=markdown,
         json_report=payload,
+        report_written=resolved_write_files,
+        report_write_reason=resolved_write_reason if resolved_write_files else None,
         markdown_path=markdown_path,
         json_path=json_path,
     )
+
+
+def should_write_report(
+    *,
+    state: SessionState,
+    config: PlumbrefConfig,
+    write_files: bool | None,
+    report_write_reason: str | None,
+) -> bool:
+    if write_files is not None:
+        return write_files
+    if config.report_policy == ReportPolicy.ALWAYS:
+        return True
+    if config.report_policy == ReportPolicy.MANUAL:
+        return False
+    return bool(report_write_reason) or should_auto_write_report(state)
+
+
+def should_auto_write_report(state: SessionState) -> bool:
+    if state.session.mode == VerificationMode.CHANGE_IMPACT or state.session.change_context:
+        return True
+    if state.session.template and state.session.template.id in {
+        "field_migration",
+        "downstream_consumers",
+        "external_integration",
+    }:
+        return True
+    for claim in state.claims.values():
+        if claim.status != ClaimStatus.SUPPORTED:
+            return True
+        if claim.risk == RiskLevel.HIGH:
+            return True
+        if claim.absolute_language:
+            return True
+    return False
+
+
+def default_report_write_reason(state: SessionState, config: PlumbrefConfig) -> str:
+    if config.report_policy == ReportPolicy.ALWAYS:
+        return "policy_always"
+    if state.session.mode == VerificationMode.CHANGE_IMPACT or state.session.change_context:
+        return "auto_report_due_to_change_impact"
+    if state.session.template and state.session.template.id in {
+        "field_migration",
+        "downstream_consumers",
+        "external_integration",
+    }:
+        return f"auto_report_due_to_{state.session.template.id}"
+    for claim in state.claims.values():
+        if claim.status != ClaimStatus.SUPPORTED:
+            return f"auto_report_due_to_{claim.status.value}"
+        if claim.risk == RiskLevel.HIGH:
+            return "auto_report_due_to_high_risk_claim"
+        if claim.absolute_language:
+            return "auto_report_due_to_absolute_language"
+    return "requested"
+
+
+def write_report_index_entry(
+    *,
+    state: SessionState,
+    config: PlumbrefConfig,
+    markdown_path: Path,
+    json_path: Path,
+    reason: str,
+) -> None:
+    index_path = config.report_path / "index.json"
+    existing = read_json(index_path) or {}
+    reports = existing.get("reports", [])
+    if not isinstance(reports, list):
+        reports = []
+    reports = [entry for entry in reports if not is_report_index_entry(entry, state.session.id)]
+    reports.append(
+        {
+            "session_id": state.session.id,
+            "created_at": state.session.created_at.isoformat(),
+            "question": redact_text(state.session.question, config.privacy_patterns),
+            "mode": state.session.mode.value,
+            "template_id": state.session.template.id if state.session.template else None,
+            "reason": reason,
+            "markdown_path": str(markdown_path),
+            "json_path": str(json_path),
+        }
+    )
+    write_json(index_path, {"reports": reports})
+
+
+def is_report_index_entry(entry: object, session_id: str) -> bool:
+    return isinstance(entry, dict) and entry.get("session_id") == session_id
 
 
 def build_json_report(state: SessionState, config: PlumbrefConfig) -> dict[str, Any]:
@@ -744,7 +853,7 @@ def build_safe_answer_summary(state: SessionState) -> dict[str, Any]:
         judgment = state.judgments.get(claim.id)
         item = {
             "claim_id": claim.id,
-            "text": claim.expected_outcome or claim.text,
+            "text": claim.text,
             "status": claim.status.value,
             "limits": judgment.limits if judgment else "",
         }
@@ -1100,26 +1209,48 @@ def natural_answer_lines(
     lines: list[str] = []
 
     if supported:
-        lines.append(
-            f"{supported_prefix} "
-            + " ".join(
-                ensure_sentence(redact_text(item["text"], config.privacy_patterns))
-                for item in supported[:6]
-            )
-        )
+        lines.extend(format_answer_group(supported_prefix, supported, config))
     else:
         lines.append(no_supported)
 
     if qualified:
-        lines.append(
-            f"{qualified_prefix} "
-            + " ".join(qualified_answer_sentence(item, config) for item in qualified[:4])
-        )
+        lines.extend(format_qualified_answer_group(qualified_prefix, qualified, config))
     if avoid:
-        lines.append(
-            f"{avoid_prefix} "
-            + " ".join(qualified_answer_sentence(item, config) for item in avoid[:4])
-        )
+        lines.extend(format_qualified_answer_group(avoid_prefix, avoid, config))
+    return lines
+
+
+def format_answer_group(
+    prefix: str,
+    items: list[dict[str, Any]],
+    config: PlumbrefConfig,
+) -> list[str]:
+    if len(items) == 1:
+        text = redact_text(items[0]["text"], config.privacy_patterns)
+        return [f"{prefix} {ensure_sentence(text)}"]
+
+    lines = [prefix]
+    for item in items[:6]:
+        text = redact_text(item["text"], config.privacy_patterns)
+        lines.append(f"- {ensure_sentence(text)}")
+    if len(items) > 6:
+        lines.append(f"- Additional supported claims omitted: {len(items) - 6}")
+    return lines
+
+
+def format_qualified_answer_group(
+    prefix: str,
+    items: list[dict[str, Any]],
+    config: PlumbrefConfig,
+) -> list[str]:
+    if len(items) == 1:
+        return [f"{prefix} {qualified_answer_sentence(items[0], config)}"]
+
+    lines = [prefix]
+    for item in items[:4]:
+        lines.append(f"- {qualified_answer_sentence(item, config)}")
+    if len(items) > 4:
+        lines.append(f"- Additional qualified claims omitted: {len(items) - 4}")
     return lines
 
 

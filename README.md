@@ -11,7 +11,9 @@ Plumbref is a local verification harness for coding agents.
 
 It gives agents an evidence gate: before they answer confidently, they break
 the answer into claims, search the repository, read bounded source snippets,
-record conservative judgments, and return an inspectable report.
+record conservative judgments, and return a concise source-backed answer. When
+the answer is risky, qualified, or explicitly requested, Plumbref also writes an
+inspectable report.
 
 Ask natural questions about your repository:
 
@@ -180,13 +182,25 @@ ID, so teams can adapt a built-in playbook without forking Plumbref.
 Reports are written under:
 
 ```text
-.cache/plumbref/reports/
+.cache/plumbref/reports/YYYY-MM-DD/
 ```
 
-Reports lead with a verification outcome: whether the agent can answer from
-checked evidence, must qualify the answer, or should avoid the claim as
+Reports are local generated receipts. They are intentionally stored under
+`.cache` so they stay out of normal source control and can be deleted without
+changing the project.
+
+By default, `report_policy = "on_demand"` writes report files only when the
+user asks for a report or when the result has risk, uncertainty, qualifications,
+change impact, or broad/absolute language. Low-risk supported answers can stay
+inline in chat without creating report files. Set `report_policy = "manual"` to
+write reports only when explicitly forced, or `report_policy = "always"` to
+write one for every rendered Plumbref result.
+
+Written reports lead with a verification outcome: whether the agent can answer
+from checked evidence, must qualify the answer, or should avoid the claim as
 written. They also include broad-claim findings, safer wording, cited evidence,
-search traces, limits, and cache metrics.
+search traces, limits, and cache metrics. `.cache/plumbref/reports/index.json`
+tracks reports that were actually written.
 
 Searches are cached by query/options and repository state. Evidence snippets
 are cached by file path, line range, file hash, and privacy settings. Cache
@@ -236,6 +250,7 @@ privacy_patterns = [
 default_budget_mode = "normal"
 default_output_modes = ["engineer", "json"]
 default_template_id = "generic_verification"
+report_policy = "on_demand"
 template_paths = ["plumbref-template-pack"]
 ```
 

@@ -105,9 +105,30 @@ Do not lead with:
 
 > Plumbref always saves tokens.
 
+Do not frame the product as:
+
+> Agents are bad and Plumbref catches them.
+
 Lead with:
 
-> Plumbref turns agent repo answers into source-backed verification reports.
+> Plumbref helps coding agents give more complete repo answers by forcing the
+> source checks to happen before the answer is trusted.
+
+The aspirational framing is stronger than the defensive one: Plumbref is a
+verification harness for careful agent work. The report is not the product; it
+is the visible proof that the agent decomposed the answer, searched the right
+areas, checked source snippets, considered limits, and qualified broad claims.
+Nobody has to be wrong for the product to be valuable. The value is that risky
+repo questions come back with higher confidence because the agent was pushed
+through the checks a careful engineer would expect.
+
+For public screenshots, prefer a real report excerpt answering a hard,
+relevant repository question. The screenshot should show that the answer went
+through verification: the question, selected template, required searches,
+source evidence, supported or qualified claims, limits, and final wording. A
+comparison graph can support the story later, but the primary "I want this"
+moment is realizing the answer is more trustworthy because the agent had to
+verify and consider the important paths before responding.
 
 Then make the token claim narrower:
 

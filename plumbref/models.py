@@ -48,6 +48,12 @@ class OutputMode(StrEnum):
     JSON = "json"
 
 
+class ReportPolicy(StrEnum):
+    MANUAL = "manual"
+    ON_DEMAND = "on_demand"
+    ALWAYS = "always"
+
+
 class VerificationMode(StrEnum):
     EXPLANATION = "explanation"
     SCENARIO = "scenario"
@@ -271,6 +277,8 @@ class RenderedReport(BaseModel):
     verdict: str
     markdown: str
     json_report: dict[str, Any]
+    report_written: bool = False
+    report_write_reason: str | None = None
     markdown_path: Path | None = None
     json_path: Path | None = None
 

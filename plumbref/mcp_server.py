@@ -185,12 +185,20 @@ def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
     def plumbref_render_report(
         session_id: str | None = None,
         output_modes: list[str] | None = None,
+        write_files: bool | None = None,
+        report_write_reason: str | None = None,
     ) -> dict[str, Any]:
-        """Render Markdown and JSON reports from stored claims, searches, evidence, and judgments."""
+        """Render a verification result, writing report files only when policy or explicit request requires it."""
         state = HARNESS.get_state(session_id)
         config = HARNESS.get_config(state.session.id)
         modes = [OutputMode(mode) for mode in output_modes] if output_modes else None
-        report = render_report(state=state, config=config, output_modes=modes)
+        report = render_report(
+            state=state,
+            config=config,
+            output_modes=modes,
+            write_files=write_files,
+            report_write_reason=report_write_reason,
+        )
         return report.model_dump(mode="json")
 
     server.run(transport="stdio")

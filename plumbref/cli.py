@@ -36,6 +36,7 @@ DEFAULT_CONFIG_TEXT = """ignored_paths = [
 default_budget_mode = "normal"
 default_output_modes = ["engineer", "json"]
 default_template_id = "generic_verification"
+report_policy = "on_demand"
 """
 
 AGENT_INSTRUCTIONS = """When answering repository behavior, migration-risk, downstream-consumer, or
@@ -58,13 +59,17 @@ Workflow:
    when source text needs to be inspected again.
 7. Record conservative judgments. Use supported only when cited evidence
    supports the claim as written and a contradiction pass was completed.
-8. Render the Plumbref report and summarize it in chat.
+8. Render the Plumbref result and summarize it in chat. Let report_policy decide
+   whether files should be written, unless the user explicitly asks for a report.
 
 Answering rules:
 - Prefer cited source evidence over confidence.
 - Say what was not checked.
 - Use the report's answer gate: answer from checked evidence, qualify
   too-broad claims, and do not claim contradicted or unverifiable parts.
+- Keep normal answers inline. Mention report paths only when a report was
+  written because the user asked, the answer is risky, or the answer needs
+  qualifications.
 - Do not claim global truth from local snippets.
 - Do not use Plumbref to inspect production data or external systems.
 """
@@ -167,6 +172,13 @@ def verify(
             help="Concrete template value as key=value, for example flow_name=checkout.",
         ),
     ] = None,
+    write_report: Annotated[
+        bool | None,
+        typer.Option(
+            "--write-report/--inline-only",
+            help="Force report file creation or force inline-only output. Omit to use report_policy.",
+        ),
+    ] = None,
 ) -> None:
     try:
         state = HARNESS.start_session(
@@ -208,7 +220,12 @@ def verify(
             raise typer.BadParameter(f"{claims} does not match the Plumbref claim schema: {exc}") from exc
 
     config = HARNESS.get_config(state.session.id)
-    report = render_report(state=state, config=config)
+    report = render_report(
+        state=state,
+        config=config,
+        write_files=write_report,
+        report_write_reason="cli_write_report" if write_report else None,
+    )
     if not state.claims:
         typer.echo(
             "Plumbref session created, but no claims were supplied. "

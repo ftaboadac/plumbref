@@ -40,6 +40,7 @@ def test_init_writes_default_config_and_prints_mcp_json(tmp_path: Path) -> None:
     assert "default_template_id = \"generic_verification\"" in (tmp_path / ".plumbref.toml").read_text(
         encoding="utf-8"
     )
+    assert "report_policy = \"on_demand\"" in (tmp_path / ".plumbref.toml").read_text(encoding="utf-8")
 
 
 def test_init_does_not_overwrite_existing_config_without_force(tmp_path: Path) -> None:

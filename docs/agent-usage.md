@@ -111,13 +111,18 @@ Workflow:
    when source text needs to be inspected again.
 7. Record conservative judgments. Use supported only when cited evidence
    supports the claim as written and a contradiction pass was completed.
-8. Render the Plumbref report and summarize it in chat.
+8. Render the Plumbref result and summarize it in chat. Let `report_policy`
+   decide whether report files should be written, unless the user explicitly
+   asks for a report.
 
 Answering rules:
 - Prefer cited source evidence over confidence.
 - Say what was not checked.
 - Use the report's answer gate: answer from checked evidence, qualify
   too-broad claims, and do not claim contradicted or unverifiable parts.
+- Keep normal answers inline. Mention report paths only when a report was
+  written because the user asked, the answer is risky, or the answer needs
+  qualifications.
 - If the repo is too large for the current budget, say the result is bounded by
   that budget and suggest a deeper pass.
 - Do not claim global truth from local snippets.
@@ -322,7 +327,7 @@ delivery behavior is source-backed, contradicted, or not found.
 
 ## Expected Chat Output
 
-After rendering a Plumbref report, the agent should keep the chat answer short:
+After rendering a Plumbref result, the agent should keep the chat answer short:
 
 ```text
 I verified this with Plumbref using the change_impact template.
@@ -337,8 +342,10 @@ Needs qualification:
 Unchecked:
 - No deeper pass was run through generated clients or external docs.
 
-Report: .cache/plumbref/reports/<session-id>.md
+Report: .cache/plumbref/reports/YYYY-MM-DD/<session-id>.md
 ```
 
 The report is the detailed artifact. The chat response should summarize the
-verdict, important supported claims, uncertain areas, and safer wording.
+verdict, important supported claims, uncertain areas, and safer wording. For
+low-risk fully supported answers, keep the result inline and do not mention a
+report path unless one was written.

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from plumbref.config import load_config
-from plumbref.models import BudgetMode, OutputMode
+from plumbref.models import BudgetMode, OutputMode, ReportPolicy
 from plumbref.sessions import PlumbrefHarness
 
 
@@ -41,6 +41,16 @@ def test_config_accepts_redaction_patterns_alias(tmp_path: Path) -> None:
     config = load_config(tmp_path)
 
     assert config.privacy_patterns == ["sample-secret"]
+
+
+def test_config_loads_report_policy(tmp_path: Path) -> None:
+    """Report file creation policy is configurable."""
+    config_path = tmp_path / ".plumbref.toml"
+    config_path.write_text('report_policy = "manual"\n', encoding="utf-8")
+
+    config = load_config(tmp_path)
+
+    assert config.report_policy == ReportPolicy.MANUAL
 
 
 def test_session_uses_config_defaults(tmp_path: Path) -> None:
