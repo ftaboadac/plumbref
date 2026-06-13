@@ -19,6 +19,10 @@ def test_report_diff_renders_status_evidence_added_and_removed_changes(tmp_path:
 
     assert "# Plumbref Report Diff" in markdown
     assert "Question: How does SSO eligibility work?" in markdown
+    assert (
+        "Summary: `SSO starts only when a provider is configured.` changed from `supported` to `contradicted`."
+        in markdown
+    )
     assert "- Claims compared: 4" in markdown
     assert "- Status changes: 1" in markdown
     assert "- Evidence drift: 1" in markdown

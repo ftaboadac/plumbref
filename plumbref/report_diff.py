@@ -248,6 +248,7 @@ def render_diff_markdown(
         "# Plumbref Report Diff",
         "",
         f"Question: {display_question(old_report, new_report)}",
+        f"Summary: {headline_summary(diffs)}",
         f"Template: {display_template(old_report, new_report)}",
         f"Old report: `{old_path}`",
         f"New report: `{new_path}`",
@@ -427,6 +428,26 @@ def summarize_changes_sentence(summary: dict[str, Any]) -> str:
         return "No material claim changes were detected."
     sentence = ", ".join(parts)
     return sentence[0].upper() + sentence[1:] + "."
+
+
+def headline_summary(diffs: list[ClaimDiff]) -> str:
+    summary = diff_summary(diffs)
+    status_changes = [diff for diff in diffs if diff.status_changed]
+    if status_changes:
+        primary = status_changes[0]
+        if primary.old and primary.new:
+            details = (
+                f"`{primary.old.text}` changed from `{primary.old.status}` "
+                f"to `{primary.new.status}`"
+            )
+            if primary.new.limits:
+                details += f"; updated wording: {primary.new.limits.rstrip('.')}"
+            if len(status_changes) > 1:
+                details += f" ({len(status_changes) - 1} more status change(s))."
+            else:
+                details += "."
+            return details
+    return summarize_changes_sentence(summary)
 
 
 def pluralize(count: int, singular: str, plural: str) -> str:

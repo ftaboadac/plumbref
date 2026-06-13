@@ -1,6 +1,7 @@
 # Plumbref Report Diff
 
 Question: How does SSO eligibility work?
+Summary: `SSO only starts when Rippling integration exists or Okta is enabled.` changed from `supported` to `contradicted`; updated wording: Say SSO can start through Rippling, Okta, or company.sso_enabled.
 Template: Explain flow (`explain_flow`)
 Old report: `examples/reports/sso-eligibility-before.json`
 New report: `examples/reports/sso-eligibility-after.json`
