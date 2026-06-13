@@ -202,6 +202,20 @@ written. They also include broad-claim findings, safer wording, cited evidence,
 search traces, limits, and cache metrics. `.cache/plumbref/reports/index.json`
 tracks reports that were actually written.
 
+Agents can compare two JSON reports for the same question through the MCP
+`plumbref_diff_reports` tool. The tool returns structured claim changes plus a
+Markdown diff, so the agent can summarize what changed inline in chat.
+
+For local debugging, the same diff renderer is available through the CLI:
+
+```shell
+plumbref diff-reports old-report.json new-report.json --output report-diff.md
+```
+
+The diff shows claim status changes, evidence-only changes, added claims,
+removed claims, and unchanged claims. New reports include stable claim IDs for
+this workflow; older reports can be compared by claim order as a fallback.
+
 Searches are cached by query/options and repository state. Evidence snippets
 are cached by file path, line range, file hash, and privacy settings. Cache
 hits and in-session evidence reuse can return compact evidence references
@@ -213,6 +227,7 @@ Checked-in example reports:
 - [Real MCP template-loading report](examples/reports/real-template-loading-mcp.md)
 - [Real MCP template_id migration report](examples/reports/real-template-id-migration-mcp.md)
 - [Real MCP onboarding change-impact report](examples/reports/real-onboarding-change-impact-mcp.md)
+- [SSO business-rule drift diff](examples/reports/sso-eligibility-drift-diff.md)
 
 ## Early Dogfood Results
 

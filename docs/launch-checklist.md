@@ -42,9 +42,11 @@ Before posting, have one demo that shows:
 - the initial hypothesis or draft answer
 - searches run
 - files and snippets read
-- supported claims
+- claim statuses, including supported, qualified, contradicted, or not found
+- contradiction checks
 - qualified or uncertain areas, if the evidence calls for them
 - safer final wording
+- whether the report could be rerun or compared later
 
 The checked-in dogfood demo is:
 
@@ -56,6 +58,8 @@ Good claims:
 
 - Plumbref gives coding agents reusable verification playbooks.
 - Plumbref keeps verification local to the repository.
+- Plumbref gives you a careful-agent workflow even when you cannot trust that
+  the agent will naturally behave like a careful senior engineer.
 - Plumbref helps agents answer repo questions with more confidence by forcing
   source checks before the answer is trusted.
 - Plumbref pushes agents to consider entry points, downstream paths, tests,
@@ -63,6 +67,8 @@ Good claims:
 - Plumbref records searches, bounded snippets, judgments, and limits.
 - Plumbref makes the verification trail visible and repeatable when the answer
   is risky or needs qualification.
+- Plumbref can turn risky repo answers into verified claims your team can rerun
+  when the code changes.
 - Plumbref can reduce blind file reading by making the agent search and read
   through a structured protocol.
 - Plumbref can reuse cached evidence as compact references when source files
@@ -104,6 +110,9 @@ It does not prove behavior automatically. The current value is higher-confidence
 repo answers: Plumbref pushes the agent to check the important source paths,
 record what it considered, and qualify anything the evidence does not fully
 support. The report is just the visible trail of that verification work.
+
+The next direction is repeatability: the same verified claims can be rerun later
+to see whether the code still supports them.
 ```
 
 Demo metrics to include:

@@ -15,6 +15,7 @@ from plumbref.models import (
     OutputMode,
     VerificationMode,
 )
+from plumbref.report_diff import build_report_diff
 from plumbref.reports import render_report
 from plumbref.search import search_repo
 from plumbref.sessions import HARNESS
@@ -182,6 +183,14 @@ def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
         return judgment.model_dump(mode="json")
 
     @server.tool()
+    def plumbref_diff_reports(
+        old_report_path: str,
+        new_report_path: str,
+    ) -> dict[str, Any]:
+        """Compare two Plumbref JSON reports and return structured claim changes plus Markdown."""
+        return diff_reports_tool(old_report_path=old_report_path, new_report_path=new_report_path)
+
+    @server.tool()
     def plumbref_render_report(
         session_id: str | None = None,
         output_modes: list[str] | None = None,
@@ -202,3 +211,8 @@ def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
         return report.model_dump(mode="json")
 
     server.run(transport="stdio")
+
+
+def diff_reports_tool(*, old_report_path: str, new_report_path: str) -> dict[str, Any]:
+    result = build_report_diff(Path(old_report_path), Path(new_report_path))
+    return result.to_response()

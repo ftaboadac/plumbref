@@ -129,8 +129,8 @@ def test_session_rejects_template_for_wrong_mode() -> None:
         )
 
 
-def test_report_includes_template_checklist(tmp_path: Path) -> None:
-    """Reports cite the template playbook used for verification."""
+def test_report_keeps_template_checklist_in_json(tmp_path: Path) -> None:
+    """Markdown reports cite the template but keep checklist details in JSON."""
     repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
     harness = PlumbrefHarness()
     state = harness.start_session(
@@ -145,5 +145,7 @@ def test_report_includes_template_checklist(tmp_path: Path) -> None:
     report = render_report(state=state, config=config)
 
     assert "Template: Explain flow (`explain_flow` v1.0)" in report.markdown
-    assert "## Template Checklist" in report.markdown
+    assert "## Template Checklist" not in report.markdown
+    assert "## JSON / Full Trace" in report.markdown
     assert report.json_report["template"]["id"] == "explain_flow"
+    assert report.json_report["quality"]["checklist"]["checks"]

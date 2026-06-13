@@ -1,0 +1,5 @@
+ignored_paths = [".git", ".venv", "node_modules", ".cache"]
+default_budget_mode = "normal"
+default_output_modes = ["engineer", "json"]
+default_template_id = "explain_flow"
+report_policy = "always"

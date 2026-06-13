@@ -1,6 +1,6 @@
 # Product Strategy
 
-Plumbref has two related but distinct product tracks.
+Plumbref has three related but distinct product tracks.
 
 ## Track 1: Verification Outcome
 
@@ -38,8 +38,8 @@ Expected effect:
 
 Best public framing:
 
-> AGENTS.md asks the agent to be careful. Plumbref gates the agent's answer
-> against recorded source evidence.
+> Plumbref gives you a careful-agent workflow even when you cannot trust that
+> the agent will naturally behave like a careful senior engineer.
 
 ## Track 2: Token Optimization
 
@@ -77,6 +77,39 @@ Best public framing:
 > Plumbref can reuse verified evidence when the source has not changed, so
 > repeated repo investigations do not have to start from zero.
 
+## Track 3: Repeatability And Drift
+
+Goal:
+
+> Keep verified claims about the codebase checkable after the code changes.
+
+This is the track that could make Plumbref more than a one-shot answer
+verification harness. A report should become a durable artifact: a set of
+claims, statuses, evidence, and limits that can be rerun later and compared
+against a new repo state.
+
+Potential features:
+
+- stable claim IDs in generated reports
+- rerun mode that rechecks a previous report's claims against a new commit
+- report diffs that show status changes, evidence changes, and new limits
+- business-rule claim tracking for flows that drift with product requirements
+- Markdown diff reports that are useful without a custom UI
+- optional scheduled or CI checks after the diff workflow is validated
+
+Expected effect:
+
+- engineering knowledge is less trapped in one chat session
+- stale assumptions become visible when the code changes
+- teams can monitor risky flows without relying on tribal memory
+- public positioning can move from "better agent answer" to "documentation that
+  stays true"
+
+Best public framing:
+
+> Your team's verified claims about how the codebase works, updated when the
+> code changes.
+
 ## Build Order
 
 Prioritize Track 1 first.
@@ -95,9 +128,11 @@ Recommended order:
 3. Add scoped follow-up checks for broader claims.
 4. Add a verification outcome summary.
 5. Improve safer-answer generation.
-6. Add evidence and search caching.
-7. Add reused-evidence reporting.
-8. Measure repeated-workflow token savings.
+6. Add stable claim IDs.
+7. Add report rerun/diff for previously verified claims.
+8. Add evidence and search caching.
+9. Add reused-evidence reporting.
+10. Measure repeated-workflow token savings.
 
 ## Positioning
 
@@ -111,16 +146,23 @@ Do not frame the product as:
 
 Lead with:
 
-> Plumbref helps coding agents give more complete repo answers by forcing the
-> source checks to happen before the answer is trusted.
+> Plumbref gives you a careful-agent workflow even when you cannot trust that
+> the agent will naturally behave like a careful senior engineer.
 
 The aspirational framing is stronger than the defensive one: Plumbref is a
-verification harness for careful agent work. The report is not the product; it
-is the visible proof that the agent decomposed the answer, searched the right
-areas, checked source snippets, considered limits, and qualified broad claims.
-Nobody has to be wrong for the product to be valuable. The value is that risky
-repo questions come back with higher confidence because the agent was pushed
-through the checks a careful engineer would expect.
+verification harness for careful agent work. It helps coding agents give more
+complete repo answers by forcing the source checks to happen before the answer
+is trusted. The report is not the product; it is the visible proof that the
+agent decomposed the answer, searched the right areas, checked source snippets,
+considered limits, and qualified broad claims. Nobody has to be wrong for the
+product to be valuable. The value is that risky repo questions come back with
+higher confidence because the agent was pushed through the checks a careful
+engineer would expect.
+
+The repeatability framing is the longer-term product category:
+
+> Plumbref turns risky repo answers into verified claims your team can rerun
+> when the code changes.
 
 For public screenshots, prefer a real report excerpt answering a hard,
 relevant repository question. The screenshot should show that the answer went

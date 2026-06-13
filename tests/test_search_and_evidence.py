@@ -91,8 +91,8 @@ def test_search_repo_handles_queries_that_start_with_dash(tmp_path: Path) -> Non
     assert any("--template-id" in match.preview for match in trace.matches)
 
 
-def test_report_includes_search_trace_matched_files(tmp_path: Path) -> None:
-    """Reports show matched files so searches are inspectable."""
+def test_report_links_json_trace_instead_of_printing_search_trace(tmp_path: Path) -> None:
+    """Markdown reports keep search details in the JSON report."""
     repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
     harness = PlumbrefHarness()
     state = harness.start_session(
@@ -109,10 +109,12 @@ def test_report_includes_search_trace_matched_files(tmp_path: Path) -> None:
 
     report = render_report(state=state, config=config)
 
-    assert "Files:" in report.markdown
-    assert "app.py" in report.markdown
-    assert "Matches:" in report.markdown
-    assert "provider_id" in report.markdown
+    assert "## JSON / Full Trace" in report.markdown
+    assert "Full checklist details, per-claim budgets, and search trace" in report.markdown
+    assert "Files:" not in report.markdown
+    assert "Matches:" not in report.markdown
+    assert "app.py" in report.json_report["trace"][0]["matched_files"]
+    assert any("provider_id" in match["preview"] for match in report.json_report["trace"][0]["matches"])
 
 
 def test_search_repo_enforces_reference_depth_budget() -> None:

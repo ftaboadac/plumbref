@@ -20,6 +20,7 @@ from plumbref.models import (
     OutputMode,
     VerificationMode,
 )
+from plumbref.report_diff import ReportDiffError, render_report_diff
 from plumbref.reports import render_report
 from plumbref.sessions import HARNESS
 from plumbref.template_registry import TemplateLoadError, load_templates, summarize_templates
@@ -266,6 +267,24 @@ def templates_command(
             f"{template['id']}@{template['version']} - {template['name']} "
             f"({template['source']})"
         )
+
+
+@app.command("diff-reports")
+def diff_reports(
+    old_report: Annotated[Path, typer.Argument(help="Old Plumbref JSON report.")],
+    new_report: Annotated[Path, typer.Argument(help="New Plumbref JSON report.")],
+    output: Annotated[Path | None, typer.Option("--output", "-o", help="Write Markdown diff to this path.")] = None,
+) -> None:
+    try:
+        markdown = render_report_diff(old_report, new_report)
+    except ReportDiffError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    if output:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(markdown, encoding="utf-8")
+        typer.echo(f"Wrote report diff: {output}")
+        return
+    typer.echo(markdown)
 
 
 def change_source_for_inputs(

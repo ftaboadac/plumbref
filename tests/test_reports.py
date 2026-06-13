@@ -71,9 +71,14 @@ def test_report_renders_markdown_and_json(tmp_path: Path) -> None:
     assert report.json_report["measurement"]["claims_total"] == 1
     assert report.json_report["measurement"]["evidence_snippets_read"] == 1
     assert report.json_report["measurement"]["source_text_chars_returned"] > 0
-    assert "Source-token estimate:" in report.markdown
+    assert "Token reduction from bounded evidence:" in report.markdown
+    assert "Source-token estimate details:" in report.markdown
     assert report.json_report["measurement"]["token_estimate"]["returned_evidence_estimated_tokens"] > 0
     assert report.json_report["measurement"]["token_estimate"]["full_cited_files_estimated_tokens"] > 0
+    assert report.json_report["question"] == "What happens if provider_id is missing?"
+    assert report.json_report["report_identity"]["id"]
+    assert report.json_report["claims"][0]["stable_id"] == "claim-001"
+    assert report.json_report["claims"][0]["stable_id_scope"] == report.json_report["report_identity"]["id"]
 
 
 def test_on_demand_policy_keeps_low_risk_supported_result_inline(tmp_path: Path) -> None:
@@ -293,26 +298,20 @@ def test_scenario_report_labels_predicted_outcomes(tmp_path: Path) -> None:
     report = render_report(state=state, config=config)
 
     assert "Verification mode: scenario" in report.markdown
-    assert "## Predicted Outcomes" in report.markdown
+    assert "## Issues That Need Action" in report.markdown
+    assert "## Supported Predicted Outcomes" in report.markdown
     assert "Scenario: run_scheduled_job receives provider_id=None." in report.markdown
     assert "Predicted outcome: The scheduled job is skipped." in report.markdown
-    assert "## Answer" in report.markdown
+    assert "## Answer Under Review" in report.markdown
     assert "## Safe Conclusion" not in report.markdown
-    assert (
-        "Based on the checked evidence, the expected outcome is: "
-        "run_scheduled_job returns skipped when provider_id is missing."
-        in report.markdown
-    )
-    assert (
-        "Important qualification: Say run_scheduled_job is skipped when provider_id is missing; "
-        "do not generalize to every job."
-        in report.markdown
-    )
+    assert "Safe to say:" in report.markdown
+    assert "run_scheduled_job returns skipped when provider_id is missing." in report.markdown
+    assert "Say with qualification:" in report.markdown
     assert (
         "Limits: Say run_scheduled_job is skipped when provider_id is missing; do not generalize to every job."
         in report.markdown
     )
-    assert report.markdown.index("## Answer") < report.markdown.index("## Predicted Outcomes")
+    assert report.markdown.index("### too_broad") < report.markdown.index("## Supported Predicted Outcomes")
     assert report.json_report["mode"] == "scenario"
 
 
@@ -388,20 +387,18 @@ def test_change_impact_report_renders_scope_and_safe_statement(tmp_path: Path) -
 
     report = render_report(state=state, config=config)
 
-    assert "## Answer" in report.markdown
+    assert "## Answer Under Review" in report.markdown
     assert "## Change Scope" in report.markdown
     assert "## Safer Impact Statement" not in report.markdown
+    assert "Safe to say:" in report.markdown
+    assert "The change affects report wording from items to records." in report.markdown
+    assert "Say with qualification:" in report.markdown
     assert (
-        "Based on the checked evidence, the impact is: "
-        "The change affects report wording from items to records."
-        in report.markdown
+        "Limits: Say the shown changed symbol affects report wording; "
+        "verify callers before claiming it is the only effect." in report.markdown
     )
-    assert (
-        "Important qualification: Say the shown changed symbol affects report wording; "
-        "verify callers before claiming it is the only effect."
-        in report.markdown
-    )
-    assert report.markdown.index("## Answer") < report.markdown.index("## Change Scope")
+    assert report.markdown.index("## Verification Outcome") < report.markdown.index("## Answer Under Review")
+    assert report.markdown.index("### too_broad") < report.markdown.index("## Supported Impact Claims")
     assert "Unsupported or qualified claims caught: 1 (too_broad=1)" in report.markdown
     assert report.json_report["change_context"]["changed_files"] == ["app.py"]
     assert report.json_report["measurement"]["too_broad_claims"] == 1
@@ -459,25 +456,21 @@ def test_report_outcome_tracks_answer_gate_and_scope(tmp_path: Path) -> None:
     report = render_report(state=state, config=config)
 
     quality = report.json_report["quality"]
-    assert "## Answer" in report.markdown
+    assert "## Answer Under Review" in report.markdown
     assert "## Verification Outcome" in report.markdown
-    assert report.markdown.index("## Answer") < report.markdown.index("## Verification Outcome")
-    assert (
-        "Based on the checked evidence: The job always skips missing providers."
-        in report.markdown
-    )
+    assert report.markdown.index("## Verification Outcome") < report.markdown.index("## Answer Under Review")
+    assert "The job always skips missing providers." in report.markdown
     assert "Answer gate: Safe to answer from checked evidence" in report.markdown
+    assert "Broad claims detected" not in report.markdown
     assert "Score:" not in report.markdown
     assert quality["answer_gate"]["status"] == "safe_to_answer"
     assert quality["score"] < 100
     assert quality["checklist"]["required_searches"][0]["passed"] is True
     assert any(
-        item["resolved_pattern"] == "run_scheduled_job error"
-        for item in quality["checklist"]["contradiction_searches"]
+        item["resolved_pattern"] == "run_scheduled_job error" for item in quality["checklist"]["contradiction_searches"]
     )
     assert any(
-        item == "Run or record contradiction search: run_scheduled_job error."
-        for item in quality["next_checks"]
+        item == "Run or record contradiction search: run_scheduled_job error." for item in quality["next_checks"]
     )
     assert quality["broad_claims"][0]["terms"] == ["always"]
     assert quality["safe_answer"]["supported"][0]["text"] == "The job always skips missing providers."

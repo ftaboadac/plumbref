@@ -6,7 +6,7 @@ from math import ceil
 from pathlib import Path
 from typing import Any
 
-from plumbref.cache import read_json, write_json
+from plumbref.cache import read_json, stable_cache_key, write_json
 from plumbref.config import PlumbrefConfig
 from plumbref.models import (
     ClaimStatus,
@@ -29,9 +29,6 @@ def render_report(
     report_write_reason: str | None = None,
 ) -> RenderedReport:
     modes = output_modes or state.session.output_modes
-    payload = build_json_report(state, config)
-    markdown = build_markdown_report(state, modes, config)
-    verdict = payload["verdict"]
     resolved_write_files = should_write_report(
         state=state,
         config=config,
@@ -44,9 +41,14 @@ def render_report(
     json_path: Path | None = None
     if resolved_write_files:
         dated_report_path = config.report_path / state.session.created_at.date().isoformat()
-        dated_report_path.mkdir(parents=True, exist_ok=True)
         markdown_path = dated_report_path / f"{state.session.id}.md"
         json_path = dated_report_path / f"{state.session.id}.json"
+
+    payload = build_json_report(state, config)
+    markdown = build_markdown_report(state, modes, config, json_report_path=json_path)
+    verdict = payload["verdict"]
+    if resolved_write_files:
+        dated_report_path.mkdir(parents=True, exist_ok=True)
         markdown_path.write_text(markdown, encoding="utf-8")
         write_json(json_path, payload)
         write_report_index_entry(
@@ -161,9 +163,13 @@ def is_report_index_entry(entry: object, session_id: str) -> bool:
 def build_json_report(state: SessionState, config: PlumbrefConfig) -> dict[str, Any]:
     status_counts = Counter(claim.status for claim in state.claims.values())
     verdict = overall_verdict(status_counts)
+    claim_stable_ids = stable_claim_ids(state)
     payload = {
         "session_id": state.session.id,
+        "created_at": state.session.created_at.isoformat(),
+        "question": state.session.question,
         "verdict": verdict,
+        "report_identity": build_report_identity(state),
         "mode": state.session.mode,
         "scenario": state.session.scenario,
         "template": state.session.template.model_dump(mode="json") if state.session.template else None,
@@ -177,6 +183,8 @@ def build_json_report(state: SessionState, config: PlumbrefConfig) -> dict[str, 
         "claims": [
             {
                 **claim.model_dump(mode="json"),
+                "stable_id": claim_stable_ids[claim.id],
+                "stable_id_scope": build_report_identity(state)["id"],
                 "judgment": state.judgments.get(claim.id).model_dump(mode="json")
                 if claim.id in state.judgments
                 else None,
@@ -189,23 +197,49 @@ def build_json_report(state: SessionState, config: PlumbrefConfig) -> dict[str, 
     return redact_payload(payload, config.privacy_patterns)
 
 
+def build_report_identity(state: SessionState) -> dict[str, Any]:
+    template_id = state.session.template.id if state.session.template else None
+    normalized_question = normalize_identity_text(state.session.question)
+    repo_identifier = stable_cache_key({"repo_root": str(state.session.repo_root)})[:16]
+    identity = {
+        "question": normalized_question,
+        "mode": state.session.mode.value,
+        "template_id": template_id,
+        "repo_identifier": repo_identifier,
+    }
+    return {
+        "id": stable_cache_key(identity)[:16],
+        **identity,
+        "repo_state": state.repo_state_fingerprint,
+    }
+
+
+def normalize_identity_text(text: str) -> str:
+    return " ".join(text.strip().lower().split())
+
+
+def stable_claim_ids(state: SessionState) -> dict[str, str]:
+    return {claim.id: f"claim-{index:03d}" for index, claim in enumerate(state.claims.values(), start=1)}
+
+
 def build_markdown_report(
     state: SessionState,
     modes: list[OutputMode],
     config: PlumbrefConfig,
+    json_report_path: Path | None = None,
 ) -> str:
     payload = build_json_report(state, config)
+    answer_gate = payload["quality"]["answer_gate"]
     lines = [
         "# Plumbref Report",
         "",
-        f"Verdict: {payload['verdict']}",
+        f"Verdict: {payload['verdict']} - {answer_gate['label']}",
         f"Verification mode: {state.session.mode.value}",
         f"Budget mode: {state.session.budget_mode.value}",
     ]
     if state.session.template:
         lines.append(
-            f"Template: {state.session.template.name} "
-            f"(`{state.session.template.id}` v{state.session.template.version})"
+            f"Template: {state.session.template.name} (`{state.session.template.id}` v{state.session.template.version})"
         )
         if state.session.template_values:
             values = ", ".join(
@@ -215,87 +249,27 @@ def build_markdown_report(
             lines.append(f"Template values: {values}")
     if state.session.mode == VerificationMode.SCENARIO and state.session.scenario:
         lines.extend(["", f"Scenario: {redact_text(state.session.scenario, config.privacy_patterns)}"])
-    lines.extend(["", "## Answer", *user_answer(state, config)])
+    lines.extend(["", "## Verification Outcome", *format_quality_summary(payload["quality"])])
+    lines.extend(["", "## Answer Under Review", *answer_under_review(state, config)])
     if state.session.mode == VerificationMode.CHANGE_IMPACT:
         lines.extend(["", "## Change Scope", *format_change_scope(state, config)])
-    if state.session.template:
-        lines.extend(["", "## Template Checklist", *format_template_checklist(state, config)])
-    lines.extend(["", "## Verification Outcome", *format_quality_summary(payload["quality"])])
-    lines.extend(["", "## Measurement", *format_measurement_summary(payload["measurement"])])
-    lines.extend(["", claim_section_heading(state)])
-    rendered_excerpt_ids: set[str] = set()
-    for claim in claims_for_report(state):
-        lines.extend(
-            [
-                "",
-                f"### {claim.status.value}: {redact_text(claim.text, config.privacy_patterns)}",
-                f"- Type: {claim.claim_type.value}",
-                f"- Risk: {claim.risk.value}",
-                "- Budget used: "
-                f"searches={claim.usage.searches}, "
-                f"files={claim.usage.files}, "
-                f"snippets={claim.usage.snippets}, "
-                f"reference_depth={claim.usage.reference_depth}",
-            ],
-        )
-        if claim.expected_outcome:
-            lines.append(f"- Predicted outcome: {redact_text(claim.expected_outcome, config.privacy_patterns)}")
-        if claim.assumptions:
-            assumptions = "; ".join(
-                redact_text(assumption, config.privacy_patterns) for assumption in claim.assumptions
-            )
-            lines.append(f"- Assumptions: {assumptions}")
-        judgment = state.judgments.get(claim.id)
-        if judgment:
-            lines.append(
-                f"- Reasoning: {redact_text(judgment.reasoning_summary, config.privacy_patterns) or 'Not provided.'}"
-            )
-            lines.append(f"- Limits: {redact_text(judgment.limits, config.privacy_patterns) or 'Not provided.'}")
-            lines.append(f"- Contradiction pass: {'yes' if judgment.contradiction_searched else 'no'}")
-        evidence_for_claim = [
-            snippet
-            for snippet in state.evidence.values()
-            if snippet.claim_id == claim.id or claim.id in snippet.claim_ids
-        ]
-        if evidence_for_claim:
-            lines.append("- Evidence:")
-            for snippet in evidence_for_claim:
-                location = f"{snippet.file}:{snippet.start_line}-{snippet.end_line}"
-                summary = redact_text(snippet.summary, config.privacy_patterns) or "Evidence snippet recorded."
-                category = f" [{snippet.evidence_category}]" if snippet.evidence_category else ""
-                cache = " cache_hit" if snippet.cache_hit else ""
-                reused = " reused" if len(snippet.claim_ids) > 1 else ""
-                lines.append(f"  - `{location}`{category}{cache}{reused}: {summary}")
-                if snippet.excerpt_returned and snippet.id not in rendered_excerpt_ids:
-                    lines.extend(format_excerpt(snippet.excerpt))
-                    rendered_excerpt_ids.add(snippet.id)
-                elif snippet.id in rendered_excerpt_ids:
-                    lines.append("    - Excerpt already shown for this reused evidence reference.")
-                else:
-                    lines.append(
-                        "    - Excerpt omitted; cached evidence reference was reused "
-                        "without returning source text."
-                    )
 
-    lines.extend(["", "## Search Trace"])
-    if not state.traces:
-        lines.append("No searches recorded.")
-    for trace in state.traces:
-        exhausted = " budget exhausted" if trace.budget_exhausted else ""
-        cache = " cache hit" if trace.cache_hit else ""
-        lines.append(
-            f"- `{trace.query}` matched {len(trace.matched_files)} file(s) in {trace.elapsed_ms}ms.{exhausted}{cache}"
-        )
-        if trace.matched_files:
-            lines.append(f"  - Files: {', '.join(f'`{file}`' for file in trace.matched_files[:5])}")
-            if len(trace.matched_files) > 5:
-                lines.append(f"  - Additional files omitted: {len(trace.matched_files) - 5}")
-        if trace.matches:
-            lines.append("  - Matches:")
-            for match in trace.matches[:5]:
-                lines.append(f"    - `{match.file}:{match.line}`: {match.preview}")
-            if len(trace.matches) > 5:
-                lines.append(f"    - Additional matches omitted: {len(trace.matches) - 5}")
+    issue_claims = [claim for claim in claims_for_report(state) if claim.status != ClaimStatus.SUPPORTED]
+    supported_claims = [claim for claim in claims_for_report(state) if claim.status == ClaimStatus.SUPPORTED]
+    rendered_excerpt_ids: set[str] = set()
+    lines.extend(["", "## Issues That Need Action"])
+    if issue_claims:
+        for claim in issue_claims:
+            lines.extend(render_claim_detail(state, claim, config, rendered_excerpt_ids))
+    else:
+        lines.append("None. No unsupported, contradicted, uncertain, or too-broad claims were recorded.")
+
+    lines.extend(["", supported_claims_heading(state)])
+    if supported_claims:
+        for claim in supported_claims:
+            lines.extend(render_claim_detail(state, claim, config, rendered_excerpt_ids))
+    else:
+        lines.append("None recorded.")
 
     if state.session.mode == VerificationMode.CHANGE_IMPACT:
         lines.extend(["", "## Missing / Uncertain Areas", *change_impact_uncertain_areas(state, config)])
@@ -308,6 +282,22 @@ def build_markdown_report(
                 support_summary(state),
             ],
         )
+    lines.extend(
+        [
+            "",
+            "## What Wasn't Checked And Why It Matters",
+            *format_unchecked_scope(payload["quality"]),
+        ]
+    )
+    lines.extend(["", "## Measurement", *format_measurement_summary(payload["measurement"])])
+    lines.extend(["", "## JSON / Full Trace", *format_json_trace_note(json_report_path)])
+    lines.extend(
+        [
+            "",
+            "## To Make A Broader Claim, Verify",
+            *format_next_checks(payload["quality"]),
+        ]
+    )
     return "\n".join(lines).strip() + "\n"
 
 
@@ -321,11 +311,7 @@ def build_measurement_summary(state: SessionState) -> dict[str, Any]:
         ClaimStatus.NOT_VERIFIABLE.value,
     }
     judged_claims = [claim for claim in state.claims.values() if claim.id in state.judgments]
-    contradiction_passes = sum(
-        1
-        for claim in judged_claims
-        if state.judgments[claim.id].contradiction_searched
-    )
+    contradiction_passes = sum(1 for claim in judged_claims if state.judgments[claim.id].contradiction_searched)
     return {
         "claims_total": len(state.claims),
         "claim_status_counts": dict(sorted(status_counts.items())),
@@ -360,13 +346,11 @@ def build_measurement_summary(state: SessionState) -> dict[str, Any]:
 def format_measurement_summary(measurement: dict[str, Any]) -> list[str]:
     status_counts = measurement["claim_status_counts"]
     status_text = ", ".join(f"{status}={count}" for status, count in status_counts.items()) or "none"
+    token_estimate = measurement.get("token_estimate")
     lines = [
+        *format_token_reduction_summary(token_estimate),
         f"- Claims: {measurement['claims_total']} ({status_text})",
-        (
-            "- Searches: "
-            f"{measurement['searches_run']} run, "
-            f"{measurement['search_traces_recorded']} trace(s) recorded"
-        ),
+        (f"- Searches: {measurement['searches_run']} run, {measurement['search_traces_recorded']} trace(s) recorded"),
         (
             "- Search results: "
             f"{measurement['search_matches_returned']} match(es) across "
@@ -395,26 +379,19 @@ def format_measurement_summary(measurement: dict[str, Any]) -> list[str]:
     ]
     if cache := measurement.get("cache"):
         lines.extend(format_cache_summary(cache))
-    if token_estimate := measurement.get("token_estimate"):
-        lines.extend(format_token_estimate(token_estimate))
+    if token_estimate:
+        lines.extend(format_token_estimate_details(token_estimate))
     return lines
 
 
 def format_cache_summary(cache: dict[str, Any]) -> list[str]:
     return [
-        "- Cache reuse:",
         (
-            "  - Searches: "
-            f"{cache['search_hits']} hit(s), {cache['search_misses']} miss(es), "
-            f"{cache['search_hit_rate_percent']}% hit rate"
+            "- Cache reuse: "
+            f"searches {cache['search_hit_rate_percent']}% hit rate; "
+            f"evidence {cache['evidence_hit_rate_percent']}% hit rate; "
+            f"{cache['evidence_reuses']} in-session evidence reuse(s)"
         ),
-        (
-            "  - Evidence: "
-            f"{cache['evidence_hits']} hit(s), {cache['evidence_misses']} miss(es), "
-            f"{cache['evidence_reuses']} in-session reuse(s), "
-            f"{cache['evidence_hit_rate_percent']}% hit rate"
-        ),
-        f"  - Source text returned from evidence tools: {cache['source_text_chars_returned']} character(s)",
     ]
 
 
@@ -466,11 +443,7 @@ def build_quality_summary(state: SessionState) -> dict[str, Any]:
         key="supported_claims_have_evidence",
         label="Supported claims cite evidence",
         passed=all(claim.id in judgments and judgments[claim.id].evidence_ids for claim in supported_claims),
-        completed=sum(
-            1
-            for claim in supported_claims
-            if claim.id in judgments and judgments[claim.id].evidence_ids
-        ),
+        completed=sum(1 for claim in supported_claims if claim.id in judgments and judgments[claim.id].evidence_ids),
         total=len(supported_claims),
         missing=[
             claim.text
@@ -482,14 +455,9 @@ def build_quality_summary(state: SessionState) -> dict[str, Any]:
         checks,
         key="supported_claims_have_contradiction_pass",
         label="Supported claims have contradiction passes",
-        passed=all(
-            claim.id in judgments and judgments[claim.id].contradiction_searched
-            for claim in supported_claims
-        ),
+        passed=all(claim.id in judgments and judgments[claim.id].contradiction_searched for claim in supported_claims),
         completed=sum(
-            1
-            for claim in supported_claims
-            if claim.id in judgments and judgments[claim.id].contradiction_searched
+            1 for claim in supported_claims if claim.id in judgments and judgments[claim.id].contradiction_searched
         ),
         total=len(supported_claims),
         missing=[
@@ -677,8 +645,7 @@ def build_answer_gate(
             "can_answer": True,
         }
     qualified_count = sum(
-        status_counts[status.value]
-        for status in (ClaimStatus.TOO_BROAD, ClaimStatus.UNCERTAIN, ClaimStatus.NOT_FOUND)
+        status_counts[status.value] for status in (ClaimStatus.TOO_BROAD, ClaimStatus.UNCERTAIN, ClaimStatus.NOT_FOUND)
     )
     if qualified_count:
         return {
@@ -808,10 +775,7 @@ def is_not_applicable_template_value(value: str) -> bool:
 def search_next_check(kind: str, item: dict[str, Any]) -> str:
     missing = item.get("missing_placeholders") or []
     if missing:
-        return (
-            f"Provide template value(s) for {', '.join(missing)} before checking "
-            f"{kind}: {item['pattern']}."
-        )
+        return f"Provide template value(s) for {', '.join(missing)} before checking {kind}: {item['pattern']}."
     return f"Run or record {kind}: {item.get('resolved_pattern') or item['pattern']}."
 
 
@@ -880,12 +844,7 @@ def format_quality_summary(quality: dict[str, Any]) -> list[str]:
     supported = safe_answer["supported"]
     qualified = safe_answer["qualified"]
     avoid = safe_answer["avoid"]
-    lines.append(
-        "- Claim outcome: "
-        f"{len(supported)} supported, "
-        f"{len(qualified)} qualified, "
-        f"{len(avoid)} avoid"
-    )
+    lines.append(f"- Claim outcome: {len(supported)} supported, {len(qualified)} qualified, {len(avoid)} avoid")
     if supported:
         lines.append("- Safe to say:")
         for item in supported[:6]:
@@ -896,51 +855,49 @@ def format_quality_summary(quality: dict[str, Any]) -> list[str]:
             suffix = f" Limits: {item['limits']}" if item["limits"] else ""
             lines.append(f"  - {item['status']}: {item['text']}{suffix}")
     if avoid:
-        lines.append("- Do not claim:")
+        lines.append("- Avoid:")
         for item in avoid[:6]:
             suffix = f" Limits: {item['limits']}" if item["limits"] else ""
             lines.append(f"  - {item['status']}: {item['text']}{suffix}")
-
-    if quality["broad_claims"]:
-        lines.append("- Broad claims detected:")
-        for claim in quality["broad_claims"]:
-            terms = ", ".join(f"`{term}`" for term in claim["terms"])
-            lines.append(f"  - {claim['status']}: {claim['text']} ({terms})")
-    else:
-        lines.append("- Broad claims detected: none")
-
-    lines.append("- Verification scope recorded:")
-    if quality["checked"]:
-        for item in quality["checked"][:12]:
-            lines.append(f"  - {item}")
-        if len(quality["checked"]) > 12:
-            lines.append(f"  - Additional completed checks omitted: {len(quality['checked']) - 12}")
-    else:
-        lines.append("  - none")
-
-    lines.append("- Outside this answer's verified scope:")
-    if quality["not_checked"]:
-        for item in quality["not_checked"][:12]:
-            lines.append(f"  - {item}")
-        if len(quality["not_checked"]) > 12:
-            lines.append(f"  - Additional incomplete checks omitted: {len(quality['not_checked']) - 12}")
-    else:
-        lines.append("  - none")
-
-    lines.append("- To make a broader claim, verify:")
-    if quality["next_checks"]:
-        for item in quality["next_checks"]:
-            lines.append(f"  - {item}")
-    else:
-        lines.append("  - none")
     return lines
+
+
+def format_unchecked_scope(quality: dict[str, Any]) -> list[str]:
+    not_checked = quality["not_checked"]
+    if not not_checked:
+        return ["No remaining checklist gaps were recorded."]
+
+    lines = [
+        ("Not checked - may affect confidence: " + ", ".join(not_checked[:8]) + "."),
+        (
+            "Risk: broader answers may miss required claim types, contradiction paths, "
+            "or evidence categories until these checks are completed."
+        ),
+    ]
+    if len(not_checked) > 8:
+        lines.append(f"{len(not_checked) - 8} more unchecked item(s) are in the JSON report.")
+    return lines
+
+
+def format_next_checks(quality: dict[str, Any]) -> list[str]:
+    next_checks = quality["next_checks"]
+    if not next_checks:
+        return ["None. The recorded claims do not require broader follow-up checks."]
+    return [f"- {item}" for item in next_checks]
+
+
+def format_json_trace_note(json_report_path: Path | None) -> list[str]:
+    if json_report_path:
+        return [
+            "Full checklist details, per-claim budgets, and search trace: "
+            f"[{json_report_path.name}]({json_report_path.name})."
+        ]
+    return ["Full checklist details, per-claim budgets, and search trace are included in the JSON report output."]
 
 
 def build_token_estimate(state: SessionState) -> dict[str, Any]:
     evidence_excerpt_chars = sum(
-        len(snippet.excerpt)
-        for snippet in state.evidence.values()
-        if snippet.excerpt_returned
+        len(snippet.excerpt) for snippet in state.evidence.values() if snippet.excerpt_returned
     )
     search_preview_chars = sum(len(match.preview) for trace in state.traces for match in trace.matches)
     cited_full_file_chars = sum_repo_file_chars(
@@ -972,19 +929,27 @@ def build_token_estimate(state: SessionState) -> dict[str, Any]:
     }
 
 
-def format_token_estimate(token_estimate: dict[str, Any]) -> list[str]:
+def format_token_reduction_summary(token_estimate: dict[str, Any] | None) -> list[str]:
+    if not token_estimate:
+        return []
     cited_reduction = token_estimate["bounded_vs_full_cited_files_token_reduction_percent"]
     matched_reduction = token_estimate["bounded_vs_full_matched_files_token_reduction_percent"]
     return [
-        "- Source-token estimate:",
         (
-            "  - Returned evidence excerpts: "
-            f"{token_estimate['returned_evidence_estimated_tokens']} estimated token(s)"
-        ),
-        (
-            "  - Search previews: "
-            f"{token_estimate['search_preview_estimated_tokens']} estimated token(s)"
-        ),
+            "- **Token reduction from bounded evidence: "
+            f"{cited_reduction}% vs full cited files; "
+            f"{matched_reduction}% vs full matched files.**"
+        )
+    ]
+
+
+def format_token_estimate_details(token_estimate: dict[str, Any]) -> list[str]:
+    cited_reduction = token_estimate["bounded_vs_full_cited_files_token_reduction_percent"]
+    matched_reduction = token_estimate["bounded_vs_full_matched_files_token_reduction_percent"]
+    return [
+        "- Source-token estimate details:",
+        (f"  - Returned evidence excerpts: {token_estimate['returned_evidence_estimated_tokens']} estimated token(s)"),
+        (f"  - Search previews: {token_estimate['search_preview_estimated_tokens']} estimated token(s)"),
         (
             "  - Full cited files baseline: "
             f"{token_estimate['full_cited_files_estimated_tokens']} estimated token(s) "
@@ -1056,11 +1021,7 @@ def format_template_checklist(state: SessionState, config: PlumbrefConfig) -> li
             lines.append(f"  - {redact_text(prompt, config.privacy_patterns)}")
 
     evidence_categories = sorted(
-        {
-            snippet.evidence_category
-            for snippet in state.evidence.values()
-            if snippet.evidence_category
-        }
+        {snippet.evidence_category for snippet in state.evidence.values() if snippet.evidence_category}
     )
     if evidence_categories:
         recorded_categories = ", ".join(f"`{category}`" for category in evidence_categories)
@@ -1069,11 +1030,7 @@ def format_template_checklist(state: SessionState, config: PlumbrefConfig) -> li
         lines.append("- Evidence categories recorded: none")
 
     judged_claims = [claim for claim in state.claims.values() if claim.id in state.judgments]
-    contradiction_count = sum(
-        1
-        for claim in judged_claims
-        if state.judgments[claim.id].contradiction_searched
-    )
+    contradiction_count = sum(1 for claim in judged_claims if state.judgments[claim.id].contradiction_searched)
     lines.append(f"- Contradiction passes recorded: {contradiction_count}/{len(judged_claims)} judged claim(s)")
     return lines
 
@@ -1095,20 +1052,74 @@ def claim_section_heading(state: SessionState) -> str:
     return "## Claims"
 
 
+def supported_claims_heading(state: SessionState) -> str:
+    if state.session.mode == VerificationMode.SCENARIO:
+        return "## Supported Predicted Outcomes"
+    if state.session.mode == VerificationMode.CHANGE_IMPACT:
+        return "## Supported Impact Claims"
+    return "## Supported Claims"
+
+
 def claims_for_report(state: SessionState) -> list[Any]:
     claims = list(state.claims.values())
-    if state.session.mode != VerificationMode.CHANGE_IMPACT:
-        return claims
 
     status_order = {
-        ClaimStatus.SUPPORTED: 0,
+        ClaimStatus.CONTRADICTED: 0,
         ClaimStatus.TOO_BROAD: 1,
         ClaimStatus.UNCERTAIN: 2,
         ClaimStatus.NOT_FOUND: 3,
-        ClaimStatus.CONTRADICTED: 4,
-        ClaimStatus.NOT_VERIFIABLE: 5,
+        ClaimStatus.NOT_VERIFIABLE: 4,
+        ClaimStatus.SUPPORTED: 5,
     }
     return sorted(claims, key=lambda claim: status_order[claim.status])
+
+
+def render_claim_detail(
+    state: SessionState,
+    claim: Any,
+    config: PlumbrefConfig,
+    rendered_excerpt_ids: set[str],
+) -> list[str]:
+    lines = [
+        "",
+        f"### {claim.status.value}: {redact_text(claim.text, config.privacy_patterns)}",
+        f"- Type: {claim.claim_type.value}",
+        f"- Risk: {claim.risk.value}",
+    ]
+    if claim.expected_outcome:
+        lines.append(f"- Predicted outcome: {redact_text(claim.expected_outcome, config.privacy_patterns)}")
+    if claim.assumptions:
+        assumptions = "; ".join(redact_text(assumption, config.privacy_patterns) for assumption in claim.assumptions)
+        lines.append(f"- Assumptions: {assumptions}")
+    judgment = state.judgments.get(claim.id)
+    if judgment:
+        lines.append(
+            f"- Reasoning: {redact_text(judgment.reasoning_summary, config.privacy_patterns) or 'Not provided.'}"
+        )
+        lines.append(f"- Limits: {redact_text(judgment.limits, config.privacy_patterns) or 'Not provided.'}")
+        lines.append(f"- Contradiction pass: {'yes' if judgment.contradiction_searched else 'no'}")
+    evidence_for_claim = [
+        snippet for snippet in state.evidence.values() if snippet.claim_id == claim.id or claim.id in snippet.claim_ids
+    ]
+    if evidence_for_claim:
+        lines.append("- Evidence:")
+        for snippet in evidence_for_claim:
+            location = f"{snippet.file}:{snippet.start_line}-{snippet.end_line}"
+            summary = redact_text(snippet.summary, config.privacy_patterns) or "Evidence snippet recorded."
+            category = f" [{snippet.evidence_category}]" if snippet.evidence_category else ""
+            cache = " cache_hit" if snippet.cache_hit else ""
+            reused = " reused" if len(snippet.claim_ids) > 1 else ""
+            lines.append(f"  - `{location}`{category}{cache}{reused}: {summary}")
+            if snippet.excerpt_returned and snippet.id not in rendered_excerpt_ids:
+                lines.extend(format_excerpt(snippet.excerpt))
+                rendered_excerpt_ids.add(snippet.id)
+            elif snippet.id in rendered_excerpt_ids:
+                lines.append("    - Excerpt already shown for this reused evidence reference.")
+            else:
+                lines.append(
+                    "    - Excerpt not shown because this cached evidence reference did not return source text."
+                )
+    return lines
 
 
 def overall_verdict(status_counts: Counter[ClaimStatus]) -> str:
@@ -1141,6 +1152,13 @@ def support_summary(state: SessionState) -> str:
         f"{len(supported)} claim(s) have direct source support. "
         f"{len(risky)} claim(s) need qualification or engineering confirmation before external use."
     )
+
+
+def answer_under_review(state: SessionState, config: PlumbrefConfig) -> list[str]:
+    answer = redact_text(state.session.answer, config.privacy_patterns).strip()
+    if not answer:
+        return ["No answer text was provided for review."]
+    return [answer]
 
 
 def user_answer(state: SessionState, config: PlumbrefConfig) -> list[str]:
@@ -1331,10 +1349,7 @@ def format_change_scope(state: SessionState, config: PlumbrefConfig) -> list[str
                 location = f"{location}:{symbol.start_line}"
             symbol_kind = redact_text(symbol.kind, config.privacy_patterns)
             symbol_name = redact_text(symbol.name, config.privacy_patterns)
-            lines.append(
-                f"  - `{redact_text(location, config.privacy_patterns)}` "
-                f"{symbol_kind} `{symbol_name}`"
-            )
+            lines.append(f"  - `{redact_text(location, config.privacy_patterns)}` {symbol_kind} `{symbol_name}`")
     if context.diff_summary:
         lines.extend(
             [

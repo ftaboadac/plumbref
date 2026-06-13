@@ -1,0 +1,744 @@
+{
+  "budget_mode": "normal",
+  "change_context": null,
+  "claims": [
+    {
+      "absolute_language": [],
+      "assumptions": [],
+      "claim_type": "behavior",
+      "entities": [],
+      "expected_outcome": null,
+      "id": "85ae5ed3-a505-4fd1-9106-418571f0a355",
+      "judgment": {
+        "claim_id": "85ae5ed3-a505-4fd1-9106-418571f0a355",
+        "contradiction_notes": "Checked the fixture for alternate entry points.",
+        "contradiction_searched": true,
+        "evidence_ids": [
+          "ev-64e2d1fe1e2c7bcf2e04e1ea"
+        ],
+        "limits": "",
+        "reasoning_summary": "The entry point delegates eligibility before returning the SSO path.",
+        "status": "supported"
+      },
+      "risk": "medium",
+      "stable_id": "claim-001",
+      "stable_id_scope": "2d0adcdd35017d40",
+      "status": "supported",
+      "text": "SSO login starts from start_sso_login, which calls is_sso_eligible before returning sso-login.",
+      "usage": {
+        "files": 0,
+        "reference_depth": 0,
+        "searches": 0,
+        "snippets": 0
+      }
+    },
+    {
+      "absolute_language": [
+        "only"
+      ],
+      "assumptions": [],
+      "claim_type": "business_rule",
+      "entities": [],
+      "expected_outcome": null,
+      "id": "b183c204-f92c-466c-8fc8-1ed40ed912d4",
+      "judgment": {
+        "claim_id": "b183c204-f92c-466c-8fc8-1ed40ed912d4",
+        "contradiction_notes": "Searched the fixture for additional eligibility branches; none were present.",
+        "contradiction_searched": true,
+        "evidence_ids": [
+          "ev-07d5dacfd8593a5910d75655",
+          "ev-94b268142cbe8a0cd855a09c"
+        ],
+        "limits": "This fixture does not claim anything about production configuration.",
+        "reasoning_summary": "The source and checks support Rippling integration or Okta as the SSO eligibility paths.",
+        "status": "supported"
+      },
+      "risk": "high",
+      "stable_id": "claim-002",
+      "stable_id_scope": "2d0adcdd35017d40",
+      "status": "supported",
+      "text": "SSO only starts when Rippling integration exists or Okta is enabled.",
+      "usage": {
+        "files": 1,
+        "reference_depth": 0,
+        "searches": 0,
+        "snippets": 1
+      }
+    }
+  ],
+  "created_at": "2026-06-13T00:00:00+00:00",
+  "evidence": [
+    {
+      "cache_hit": true,
+      "cache_key": "64e2d1fe1e2c7bcf2e04e1eaa266f4e804a5d476cac695dff57366a9a7f86fce",
+      "claim_id": "85ae5ed3-a505-4fd1-9106-418571f0a355",
+      "claim_ids": [
+        "85ae5ed3-a505-4fd1-9106-418571f0a355"
+      ],
+      "end_line": 22,
+      "evidence_category": "entry point",
+      "excerpt": "",
+      "excerpt_returned": false,
+      "file": "app/sso.py",
+      "id": "ev-64e2d1fe1e2c7bcf2e04e1ea",
+      "sha256": "ebfd2f5370b24b508d813044d599c92c3c4c31b2e1e73b74e0b6a73748aea258",
+      "start_line": 19,
+      "summary": "start_sso_login calls is_sso_eligible before choosing the SSO path."
+    },
+    {
+      "cache_hit": true,
+      "cache_key": "07d5dacfd8593a5910d7565512195adf89564b2ee3c5650c8bdecde57364f4c9",
+      "claim_id": "b183c204-f92c-466c-8fc8-1ed40ed912d4",
+      "claim_ids": [
+        "b183c204-f92c-466c-8fc8-1ed40ed912d4"
+      ],
+      "end_line": 16,
+      "evidence_category": "business rule",
+      "excerpt": "",
+      "excerpt_returned": false,
+      "file": "app/sso.py",
+      "id": "ev-07d5dacfd8593a5910d75655",
+      "sha256": "bd67d05de4bf9d033d22fcb2add507a25660dee80b434bd9bc49a8315c54b3da",
+      "start_line": 10,
+      "summary": "is_sso_eligible returns true for Rippling integration or Okta."
+    },
+    {
+      "cache_hit": false,
+      "cache_key": "94b268142cbe8a0cd855a09c44c87a79060d771c25dc12092dd271ab06f40556",
+      "claim_id": "b183c204-f92c-466c-8fc8-1ed40ed912d4",
+      "claim_ids": [
+        "b183c204-f92c-466c-8fc8-1ed40ed912d4"
+      ],
+      "end_line": 12,
+      "evidence_category": "tests",
+      "excerpt": "from app.sso import Company, start_sso_login\n\n\ndef rippling_company_uses_sso():\n    assert start_sso_login(Company(rippling_integration_id=\"ri_123\")) == \"sso-login\"\n\n\ndef okta_company_uses_sso():\n    assert start_sso_login(Company(okta_enabled=True)) == \"sso-login\"\n\n\ndef default_company_uses_password_login():",
+      "excerpt_returned": true,
+      "file": "checks/sso_checks.py",
+      "id": "ev-94b268142cbe8a0cd855a09c",
+      "sha256": "0de06fe607083f64e7838019272840ddfab6d93b4179bf1837ddad09c8b9c0ae",
+      "start_line": 1,
+      "summary": "Checks cover Rippling, Okta, and default password login."
+    }
+  ],
+  "measurement": {
+    "cache": {
+      "evidence_hit_rate_percent": 67,
+      "evidence_hits": 2,
+      "evidence_misses": 1,
+      "evidence_reuses": 0,
+      "search_hit_rate_percent": 0,
+      "search_hits": 0,
+      "search_misses": 0,
+      "source_text_chars_returned": 310
+    },
+    "claim_status_counts": {
+      "supported": 2
+    },
+    "claims_total": 2,
+    "contradiction_passes": 2,
+    "evidence_files_read": 1,
+    "evidence_snippets_read": 1,
+    "judged_claims": 2,
+    "matched_files": 0,
+    "search_matches_returned": 0,
+    "search_traces_recorded": 0,
+    "searches_run": 0,
+    "source_text_chars_returned": 310,
+    "source_text_estimated_tokens_returned": 78,
+    "token_estimate": {
+      "bounded_vs_full_cited_files_token_reduction_percent": 66,
+      "bounded_vs_full_matched_files_token_reduction_percent": 0,
+      "full_cited_files_chars": 904,
+      "full_cited_files_estimated_tokens": 226,
+      "full_matched_files_chars": 0,
+      "full_matched_files_estimated_tokens": 0,
+      "method": "estimated_tokens = ceil(characters / 4); source-text comparison only, not provider billing",
+      "returned_evidence_chars": 310,
+      "returned_evidence_estimated_tokens": 78,
+      "search_preview_chars": 0,
+      "search_preview_estimated_tokens": 0
+    },
+    "too_broad_claims": 0,
+    "unique_evidence_files": 2,
+    "unsupported_or_qualified_claims": 0
+  },
+  "mode": "explanation",
+  "quality": {
+    "answer_gate": {
+      "can_answer": true,
+      "label": "Safe to answer from checked evidence",
+      "status": "safe_to_answer",
+      "summary": "All recorded claims are supported by cited source evidence."
+    },
+    "broad_claims": [
+      {
+        "claim_id": "b183c204-f92c-466c-8fc8-1ed40ed912d4",
+        "contradiction_notes": "Searched the fixture for additional eligibility branches; none were present.",
+        "requires_strict_support": true,
+        "status": "supported",
+        "terms": [
+          "only"
+        ],
+        "text": "SSO only starts when Rippling integration exists or Okta is enabled."
+      }
+    ],
+    "checked": [
+      "Claims recorded",
+      "Claims judged",
+      "Supported claims cite evidence",
+      "Supported claims have contradiction passes",
+      "Supported broad claims explain broad-language coverage",
+      "Required claim type: behavior",
+      "Required claim type: business_rule",
+      "Evidence category: entry point",
+      "Evidence category: tests"
+    ],
+    "checklist": {
+      "checks": [
+        {
+          "completed": 2,
+          "key": "claims_recorded",
+          "label": "Claims recorded",
+          "missing": [],
+          "passed": true,
+          "total": 2
+        },
+        {
+          "completed": 2,
+          "key": "claims_judged",
+          "label": "Claims judged",
+          "missing": [],
+          "passed": true,
+          "total": 2
+        },
+        {
+          "completed": 2,
+          "key": "supported_claims_have_evidence",
+          "label": "Supported claims cite evidence",
+          "missing": [],
+          "passed": true,
+          "total": 2
+        },
+        {
+          "completed": 2,
+          "key": "supported_claims_have_contradiction_pass",
+          "label": "Supported claims have contradiction passes",
+          "missing": [],
+          "passed": true,
+          "total": 2
+        },
+        {
+          "completed": 2,
+          "key": "broad_supported_claims_have_contradiction_notes",
+          "label": "Supported broad claims explain broad-language coverage",
+          "missing": [],
+          "passed": true,
+          "total": 2
+        },
+        {
+          "completed": 0,
+          "key": "required_claim_type:definition",
+          "label": "Required claim type: definition",
+          "missing": [
+            "definition"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 1,
+          "key": "required_claim_type:behavior",
+          "label": "Required claim type: behavior",
+          "missing": [],
+          "passed": true,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "required_claim_type:api",
+          "label": "Required claim type: api",
+          "missing": [
+            "api"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 1,
+          "key": "required_claim_type:business_rule",
+          "label": "Required claim type: business_rule",
+          "missing": [],
+          "passed": true,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "required_search:{flow_name}",
+          "label": "Required search: {flow_name}",
+          "missing": [
+            "{flow_name}"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "required_search:{entry_point}",
+          "label": "Required search: {entry_point}",
+          "missing": [
+            "{entry_point}"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "required_search:{main_entity}",
+          "label": "Required search: {main_entity}",
+          "missing": [
+            "{main_entity}"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "required_search:{external_system}",
+          "label": "Required search: {external_system}",
+          "missing": [
+            "{external_system}"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "contradiction_search:{flow_name} test",
+          "label": "Contradiction search: {flow_name} test",
+          "missing": [
+            "{flow_name} test"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "contradiction_search:{flow_name} error",
+          "label": "Contradiction search: {flow_name} error",
+          "missing": [
+            "{flow_name} error"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "contradiction_search:{entry_point} disabled",
+          "label": "Contradiction search: {entry_point} disabled",
+          "missing": [
+            "{entry_point} disabled"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "contradiction_search:{external_system} mock",
+          "label": "Contradiction search: {external_system} mock",
+          "missing": [
+            "{external_system} mock"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 1,
+          "key": "evidence_category:entry point",
+          "label": "Evidence category: entry point",
+          "missing": [],
+          "passed": true,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "evidence_category:main implementation path",
+          "label": "Evidence category: main implementation path",
+          "missing": [
+            "main implementation path"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "evidence_category:data inputs",
+          "label": "Evidence category: data inputs",
+          "missing": [
+            "data inputs"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "evidence_category:data outputs",
+          "label": "Evidence category: data outputs",
+          "missing": [
+            "data outputs"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "evidence_category:external calls",
+          "label": "Evidence category: external calls",
+          "missing": [
+            "external calls"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "evidence_category:failure handling",
+          "label": "Evidence category: failure handling",
+          "missing": [
+            "failure handling"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 1,
+          "key": "evidence_category:tests",
+          "label": "Evidence category: tests",
+          "missing": [],
+          "passed": true,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "evidence_category:docs",
+          "label": "Evidence category: docs",
+          "missing": [
+            "docs"
+          ],
+          "passed": false,
+          "total": 1
+        }
+      ],
+      "contradiction_searches": [
+        {
+          "literal_tokens": [
+            "sso",
+            "eligibility",
+            "test"
+          ],
+          "matched_queries": [],
+          "missing_placeholders": [],
+          "not_applicable_placeholders": [],
+          "passed": false,
+          "pattern": "{flow_name} test",
+          "resolved_pattern": "SSO eligibility test",
+          "skipped": false
+        },
+        {
+          "literal_tokens": [
+            "sso",
+            "eligibility",
+            "error"
+          ],
+          "matched_queries": [],
+          "missing_placeholders": [],
+          "not_applicable_placeholders": [],
+          "passed": false,
+          "pattern": "{flow_name} error",
+          "resolved_pattern": "SSO eligibility error",
+          "skipped": false
+        },
+        {
+          "literal_tokens": [
+            "start_sso_login",
+            "disabled"
+          ],
+          "matched_queries": [],
+          "missing_placeholders": [],
+          "not_applicable_placeholders": [],
+          "passed": false,
+          "pattern": "{entry_point} disabled",
+          "resolved_pattern": "start_sso_login disabled",
+          "skipped": false
+        },
+        {
+          "literal_tokens": [
+            "rippling",
+            "or",
+            "okta",
+            "mock"
+          ],
+          "matched_queries": [],
+          "missing_placeholders": [],
+          "not_applicable_placeholders": [],
+          "passed": false,
+          "pattern": "{external_system} mock",
+          "resolved_pattern": "Rippling or Okta mock",
+          "skipped": false
+        }
+      ],
+      "evidence_categories": [
+        {
+          "category": "entry point",
+          "passed": true
+        },
+        {
+          "category": "main implementation path",
+          "passed": false
+        },
+        {
+          "category": "data inputs",
+          "passed": false
+        },
+        {
+          "category": "data outputs",
+          "passed": false
+        },
+        {
+          "category": "external calls",
+          "passed": false
+        },
+        {
+          "category": "failure handling",
+          "passed": false
+        },
+        {
+          "category": "tests",
+          "passed": true
+        },
+        {
+          "category": "docs",
+          "passed": false
+        }
+      ],
+      "required_claim_types": [
+        {
+          "claim_type": "definition",
+          "passed": false
+        },
+        {
+          "claim_type": "behavior",
+          "passed": true
+        },
+        {
+          "claim_type": "api",
+          "passed": false
+        },
+        {
+          "claim_type": "business_rule",
+          "passed": true
+        }
+      ],
+      "required_searches": [
+        {
+          "literal_tokens": [
+            "sso",
+            "eligibility"
+          ],
+          "matched_queries": [],
+          "missing_placeholders": [],
+          "not_applicable_placeholders": [],
+          "passed": false,
+          "pattern": "{flow_name}",
+          "resolved_pattern": "SSO eligibility",
+          "skipped": false
+        },
+        {
+          "literal_tokens": [
+            "start_sso_login"
+          ],
+          "matched_queries": [],
+          "missing_placeholders": [],
+          "not_applicable_placeholders": [],
+          "passed": false,
+          "pattern": "{entry_point}",
+          "resolved_pattern": "start_sso_login",
+          "skipped": false
+        },
+        {
+          "literal_tokens": [
+            "company"
+          ],
+          "matched_queries": [],
+          "missing_placeholders": [],
+          "not_applicable_placeholders": [],
+          "passed": false,
+          "pattern": "{main_entity}",
+          "resolved_pattern": "Company",
+          "skipped": false
+        },
+        {
+          "literal_tokens": [
+            "rippling",
+            "or",
+            "okta"
+          ],
+          "matched_queries": [],
+          "missing_placeholders": [],
+          "not_applicable_placeholders": [],
+          "passed": false,
+          "pattern": "{external_system}",
+          "resolved_pattern": "Rippling or Okta",
+          "skipped": false
+        }
+      ]
+    },
+    "checks_passed": 9,
+    "checks_total": 25,
+    "grade": "incomplete",
+    "next_checks": [
+      "Run or record required search: SSO eligibility.",
+      "Run or record required search: start_sso_login.",
+      "Run or record required search: Company.",
+      "Run or record required search: Rippling or Okta.",
+      "Run or record contradiction search: SSO eligibility test.",
+      "Run or record contradiction search: SSO eligibility error.",
+      "Run or record contradiction search: start_sso_login disabled.",
+      "Run or record contradiction search: Rippling or Okta mock.",
+      "Read evidence for required category: main implementation path.",
+      "Read evidence for required category: data inputs.",
+      "Read evidence for required category: data outputs.",
+      "Read evidence for required category: external calls."
+    ],
+    "not_checked": [
+      "Required claim type: definition",
+      "Required claim type: api",
+      "Required search: {flow_name}",
+      "Required search: {entry_point}",
+      "Required search: {main_entity}",
+      "Required search: {external_system}",
+      "Contradiction search: {flow_name} test",
+      "Contradiction search: {flow_name} error",
+      "Contradiction search: {entry_point} disabled",
+      "Contradiction search: {external_system} mock",
+      "Evidence category: main implementation path",
+      "Evidence category: data inputs",
+      "Evidence category: data outputs",
+      "Evidence category: external calls",
+      "Evidence category: failure handling",
+      "Evidence category: docs"
+    ],
+    "safe_answer": {
+      "avoid": [],
+      "qualified": [],
+      "supported": [
+        {
+          "claim_id": "85ae5ed3-a505-4fd1-9106-418571f0a355",
+          "limits": "",
+          "status": "supported",
+          "text": "SSO login starts from start_sso_login, which calls is_sso_eligible before returning sso-login."
+        },
+        {
+          "claim_id": "b183c204-f92c-466c-8fc8-1ed40ed912d4",
+          "limits": "This fixture does not claim anything about production configuration.",
+          "status": "supported",
+          "text": "SSO only starts when Rippling integration exists or Okta is enabled."
+        }
+      ]
+    },
+    "score": 36,
+    "summary": "9/25 observable verification check(s) complete."
+  },
+  "question": "How does SSO eligibility work?",
+  "report_identity": {
+    "id": "2d0adcdd35017d40",
+    "mode": "explanation",
+    "question": "how does sso eligibility work?",
+    "repo_identifier": "d4ca90f741a09507",
+    "repo_state": null,
+    "template_id": "explain_flow"
+  },
+  "scenario": null,
+  "session_id": "example-sso-before",
+  "template": {
+    "budgets": {
+      "deep": {
+        "files_per_claim": 12,
+        "max_claims": 16,
+        "reference_depth": 3,
+        "searches_per_claim": 10,
+        "snippets_per_claim": 20
+      },
+      "fast": {
+        "files_per_claim": 4,
+        "max_claims": 5,
+        "reference_depth": 1,
+        "searches_per_claim": 4,
+        "snippets_per_claim": 6
+      },
+      "normal": {
+        "files_per_claim": 6,
+        "max_claims": 8,
+        "reference_depth": 2,
+        "searches_per_claim": 6,
+        "snippets_per_claim": 10
+      }
+    },
+    "contradiction_searches": [
+      "{flow_name} test",
+      "{flow_name} error",
+      "{entry_point} disabled",
+      "{external_system} mock"
+    ],
+    "description": "Explain how a workflow or integration currently behaves from source evidence.",
+    "evidence_categories": [
+      "entry point",
+      "main implementation path",
+      "data inputs",
+      "data outputs",
+      "external calls",
+      "failure handling",
+      "tests",
+      "docs"
+    ],
+    "id": "explain_flow",
+    "modes": [
+      "explanation"
+    ],
+    "name": "Explain flow",
+    "report_sections": [
+      "short flow summary",
+      "source-backed path",
+      "inputs and outputs",
+      "failure modes",
+      "open uncertainties",
+      "files worth reading next"
+    ],
+    "required_claim_types": [
+      "definition",
+      "behavior",
+      "api",
+      "business_rule"
+    ],
+    "required_searches": [
+      "{flow_name}",
+      "{entry_point}",
+      "{main_entity}",
+      "{external_system}"
+    ],
+    "source": "builtin:explain_flow.toml",
+    "unchecked_area_prompts": [
+      "Did the search find the entry point?",
+      "Were failure and retry paths checked?",
+      "Were tests or docs found for this flow?"
+    ],
+    "version": "1.0"
+  },
+  "template_values": {
+    "entry_point": "start_sso_login",
+    "external_system": "Rippling or Okta",
+    "flow_name": "SSO eligibility",
+    "main_entity": "Company"
+  },
+  "trace": [],
+  "verdict": "Supported"
+}
