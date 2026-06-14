@@ -64,6 +64,16 @@ def test_report_renders_markdown_and_json(tmp_path: Path) -> None:
     report = render_report(state=state, config=config)
 
     assert report.json_report["verdict"] == "Supported"
+    assert report.inline_answer.startswith("Based on checked evidence, this answer is supported.")
+    assert "Supported:" in report.inline_answer
+    assert "The scheduled job skips work when provider_id is missing." in report.inline_answer
+    assert "Evidence checked:" in report.inline_answer
+    assert "`app.py:9-11`" in report.inline_answer
+    assert (
+        "Verification: 1 claim(s) (supported=1); 1 evidence snippet(s); 1/1 contradiction pass(es)."
+        in report.inline_answer
+    )
+    assert "# Plumbref Report" not in report.inline_answer
     assert "Support-Safe Summary" in report.markdown
     assert "## Measurement" in report.markdown
     assert "```text" in report.markdown
@@ -520,6 +530,13 @@ def test_report_outcome_qualifies_too_broad_claims(tmp_path: Path) -> None:
     report = render_report(state=state, config=config, write_files=False)
 
     quality = report.json_report["quality"]
+    assert report.inline_answer.startswith("Based on checked evidence, answer with these qualifications.")
+    assert "Important limits:" in report.inline_answer
+    assert "Say run_scheduled_job skips missing provider_id." in report.inline_answer
+    assert (
+        "Verification: 1 claim(s) (too_broad=1); 1 evidence snippet(s); 0/1 contradiction pass(es)."
+        in report.inline_answer
+    )
     assert quality["answer_gate"]["status"] == "answer_with_qualifications"
     assert "Answer gate: Answer with qualifications" in report.markdown
     assert "Say with qualification:" in report.markdown

@@ -2,7 +2,9 @@
 
 Plumbref is intended to run behind a coding agent through MCP. The user should
 ask normal repository questions in chat; the agent should use Plumbref tools to
-turn the answer into a bounded, source-backed verification report.
+turn the answer into a bounded, source-backed inline answer. A Markdown report
+is the inspectable receipt when the answer is risky, qualified, or explicitly
+requested.
 
 This guide is written for Codex, Claude Code, Cursor, and other MCP-capable
 coding agents. The examples are intentionally generic and avoid company- or
@@ -111,18 +113,18 @@ Workflow:
    when source text needs to be inspected again.
 7. Record conservative judgments. Use supported only when cited evidence
    supports the claim as written and a contradiction pass was completed.
-8. Render the Plumbref result and summarize it in chat. Let `report_policy`
-   decide whether report files should be written, unless the user explicitly
-   asks for a report.
+8. Render the Plumbref result. Return the `inline_answer` in chat by default.
+   Let `report_policy` decide whether report files should be written, unless
+   the user explicitly asks for a report.
 
 Answering rules:
 - Prefer cited source evidence over confidence.
 - Say what was not checked.
 - Use the report's answer gate: answer from checked evidence, qualify
   too-broad claims, and do not claim contradicted or unverifiable parts.
-- Keep normal answers inline. Mention report paths only when a report was
-  written because the user asked, the answer is risky, or the answer needs
-  qualifications.
+- Keep normal answers inline with `inline_answer`. Mention report paths only
+  when a report was written because the user asked, the answer is risky, or
+  the answer needs qualifications.
 - If the repo is too large for the current budget, say the result is bounded by
   that budget and suggest a deeper pass.
 - Do not claim global truth from local snippets.
@@ -191,9 +193,9 @@ Agent then:
 - reads bounded snippets for the job path and relevant tests
 - runs contradiction searches for disabled paths, dry-run behavior, and error
   handling
-- records judgments and renders a report
+- records judgments and renders the result
 
-Chat summary should include:
+The returned `inline_answer` is suitable for chat, for example:
 
 ```text
 Plumbref found source support for the cleanup entry point and retention check.
@@ -240,7 +242,7 @@ Agent then:
 - treats any "only needs model changes" claim as too broad unless broad
   contradiction searches support it
 
-Chat summary should include:
+The returned `inline_answer` is suitable for chat, for example:
 
 ```text
 The source-backed impacts are direct reads in two code paths and one payload
@@ -291,7 +293,7 @@ Agent then:
 - marks absolute language such as "only formatting" as supported only after a
   contradiction pass
 
-Chat summary should include:
+The returned `inline_answer` is suitable for chat, for example:
 
 ```text
 Plumbref supports the narrower statement that the changed symbol formats report
@@ -327,7 +329,8 @@ delivery behavior is source-backed, contradicted, or not found.
 
 ## Expected Chat Output
 
-After rendering a Plumbref result, the agent should keep the chat answer short:
+After rendering a Plumbref result, the agent should use the returned
+`inline_answer` as the default chat response:
 
 ```text
 I verified this with Plumbref using the change_impact template.
@@ -345,7 +348,8 @@ Unchecked:
 Report: .cache/plumbref/reports/YYYY-MM-DD/<session-id>.md
 ```
 
-The report is the detailed artifact. The chat response should summarize the
-verdict, important supported claims, uncertain areas, and safer wording. For
-low-risk fully supported answers, keep the result inline and do not mention a
-report path unless one was written.
+The report is the detailed artifact. `inline_answer` is the chat surface: it
+summarizes the verdict, important supported claims, uncertain areas, safer
+wording, evidence locations, and verification counts. For low-risk fully
+supported answers, keep the result inline and do not mention a report path
+unless one was written.

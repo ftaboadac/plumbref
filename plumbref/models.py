@@ -275,6 +275,7 @@ class Judgment(BaseModel):
 class RenderedReport(BaseModel):
     session_id: str
     verdict: str
+    inline_answer: str
     markdown: str
     json_report: dict[str, Any]
     report_written: bool = False

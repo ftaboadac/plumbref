@@ -11,9 +11,9 @@ Plumbref is a local verification harness for coding agents.
 
 It gives agents an evidence gate: before they answer confidently, they break
 the answer into claims, search the repository, read bounded source snippets,
-record conservative judgments, and return a concise source-backed answer. When
-the answer is risky, qualified, or explicitly requested, Plumbref also writes an
-inspectable report.
+record conservative judgments, and return a concise source-backed inline
+answer. When the answer is risky, qualified, or explicitly requested, Plumbref
+also writes an inspectable report.
 
 Ask natural questions about your repository:
 
@@ -201,6 +201,11 @@ from checked evidence, must qualify the answer, or should avoid the claim as
 written. They also include broad-claim findings, safer wording, cited evidence,
 search traces, limits, and cache metrics. `.cache/plumbref/reports/index.json`
 tracks reports that were actually written.
+
+MCP render responses also include `inline_answer`: a chat-shaped answer that
+summarizes supported claims, important limits, evidence locations, and
+verification counts. Agents should use `inline_answer` as the normal chat
+response and treat Markdown reports as the inspectable receipt.
 
 Agents can compare two JSON reports for the same question through the MCP
 `plumbref_diff_reports` tool. The tool returns structured claim changes plus a

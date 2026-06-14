@@ -46,6 +46,7 @@ def render_report(
 
     payload = build_json_report(state, config)
     markdown = build_markdown_report(state, modes, config, json_report_path=json_path)
+    inline_answer = build_inline_answer(state, config, payload)
     verdict = payload["verdict"]
     if resolved_write_files:
         dated_report_path.mkdir(parents=True, exist_ok=True)
@@ -62,6 +63,7 @@ def render_report(
     return RenderedReport(
         session_id=state.session.id,
         verdict=verdict,
+        inline_answer=inline_answer,
         markdown=markdown,
         json_report=payload,
         report_written=resolved_write_files,
@@ -1159,6 +1161,132 @@ def answer_under_review(state: SessionState, config: PlumbrefConfig) -> list[str
     if not answer:
         return ["No answer text was provided for review."]
     return [answer]
+
+
+def build_inline_answer(
+    state: SessionState,
+    config: PlumbrefConfig,
+    payload: dict[str, Any] | None = None,
+) -> str:
+    """Build the chat-shaped answer an MCP agent can return directly."""
+    report = payload or build_json_report(state, config)
+    quality = report["quality"]
+    measurement = report["measurement"]
+    answer_gate = quality["answer_gate"]
+    safe_answer = quality["safe_answer"]
+
+    lines = [inline_answer_opening(answer_gate)]
+    supported_lines = inline_supported_lines(safe_answer["supported"], config)
+    if supported_lines:
+        lines.extend(["", "Supported:", *supported_lines])
+
+    limit_lines = inline_limit_lines(state, safe_answer, config)
+    if limit_lines:
+        lines.extend(["", "Important limits:", *limit_lines])
+
+    evidence_lines = inline_evidence_lines(state, config)
+    if evidence_lines:
+        lines.extend(["", "Evidence checked:", *evidence_lines])
+
+    lines.extend(["", f"Verification: {inline_measurement_summary(state, measurement)}"])
+
+    if not answer_gate["can_answer"] and quality["next_checks"]:
+        lines.extend(["", "Next check:", f"- {redact_text(quality['next_checks'][0], config.privacy_patterns)}"])
+
+    return "\n".join(lines).strip() + "\n"
+
+
+def inline_answer_opening(answer_gate: dict[str, Any]) -> str:
+    status = answer_gate["status"]
+    if status == "safe_to_answer":
+        return "Based on checked evidence, this answer is supported."
+    if status == "answer_with_qualifications":
+        return "Based on checked evidence, answer with these qualifications."
+    if status == "answer_with_limits":
+        return "Based on checked evidence, answer with these limits."
+    if status == "do_not_claim":
+        return "Plumbref found source evidence against the answer as written."
+    return "Plumbref does not have enough checked evidence to answer yet."
+
+
+def inline_supported_lines(items: list[dict[str, Any]], config: PlumbrefConfig) -> list[str]:
+    lines = [f"- {ensure_sentence(redact_text(item['text'], config.privacy_patterns))}" for item in items[:4]]
+    if len(items) > 4:
+        lines.append(f"- {len(items) - 4} more supported claim(s) in the report.")
+    return lines
+
+
+def inline_limit_lines(
+    state: SessionState,
+    safe_answer: dict[str, Any],
+    config: PlumbrefConfig,
+) -> list[str]:
+    limits: list[str] = []
+    for claim in state.claims.values():
+        judgment = state.judgments.get(claim.id)
+        if not judgment or not judgment.limits.strip():
+            continue
+        if claim.status == ClaimStatus.SUPPORTED and not is_material_supported_limit(judgment.limits):
+            continue
+        limits.append(judgment.limits)
+
+    for item in [*safe_answer["qualified"], *safe_answer["avoid"]]:
+        if item["limits"]:
+            limits.append(item["limits"])
+        else:
+            limits.append(f"{item['status']}: {item['text']}")
+
+    deduped = dedupe_preserve_order([redact_text(limit, config.privacy_patterns) for limit in limits if limit.strip()])
+    lines = [f"- {ensure_sentence(limit)}" for limit in deduped[:4]]
+    if len(deduped) > 4:
+        lines.append(f"- {len(deduped) - 4} more limit(s) in the report.")
+    return lines
+
+
+def is_material_supported_limit(limit: str) -> bool:
+    normalized = normalize_check_text(limit)
+    if not normalized:
+        return False
+    return normalized not in {"not provided", "none", "n a", "not applicable"}
+
+
+def inline_evidence_lines(state: SessionState, config: PlumbrefConfig) -> list[str]:
+    claims = list(state.claims.values())
+    priority = [
+        ClaimStatus.CONTRADICTED,
+        ClaimStatus.TOO_BROAD,
+        ClaimStatus.UNCERTAIN,
+        ClaimStatus.NOT_FOUND,
+        ClaimStatus.NOT_VERIFIABLE,
+        ClaimStatus.SUPPORTED,
+    ]
+    claims.sort(key=lambda claim: priority.index(claim.status))
+
+    evidence_by_id = state.evidence
+    locations: list[str] = []
+    for claim in claims:
+        judgment = state.judgments.get(claim.id)
+        if not judgment:
+            continue
+        for evidence_id in judgment.evidence_ids:
+            snippet = evidence_by_id.get(evidence_id)
+            if not snippet:
+                continue
+            location = f"{snippet.file}:{snippet.start_line}-{snippet.end_line}"
+            locations.append(redact_text(location, config.privacy_patterns))
+
+    return [f"- `{location}`" for location in dedupe_preserve_order(locations)[:4]]
+
+
+def inline_measurement_summary(state: SessionState, measurement: dict[str, Any]) -> str:
+    status_counts = measurement["claim_status_counts"]
+    status_text = ", ".join(f"{status}={count}" for status, count in status_counts.items()) or "no claims"
+    evidence_count = len(state.evidence)
+    return (
+        f"{measurement['claims_total']} claim(s) ({status_text}); "
+        f"{evidence_count} evidence snippet(s); "
+        f"{measurement['contradiction_passes']}/{measurement['judged_claims']} contradiction pass(es)."
+    )
 
 
 def user_answer(state: SessionState, config: PlumbrefConfig) -> list[str]:

@@ -60,17 +60,18 @@ Workflow:
    when source text needs to be inspected again.
 7. Record conservative judgments. Use supported only when cited evidence
    supports the claim as written and a contradiction pass was completed.
-8. Render the Plumbref result and summarize it in chat. Let report_policy decide
-   whether files should be written, unless the user explicitly asks for a report.
+8. Render the Plumbref result. Return the `inline_answer` in chat by default.
+   Let report_policy decide whether files should be written, unless the user
+   explicitly asks for a report.
 
 Answering rules:
 - Prefer cited source evidence over confidence.
 - Say what was not checked.
 - Use the report's answer gate: answer from checked evidence, qualify
   too-broad claims, and do not claim contradicted or unverifiable parts.
-- Keep normal answers inline. Mention report paths only when a report was
-  written because the user asked, the answer is risky, or the answer needs
-  qualifications.
+- Keep normal answers inline with `inline_answer`. Mention report paths only
+  when a report was written because the user asked, the answer is risky, or
+  the answer needs qualifications.
 - Do not claim global truth from local snippets.
 - Do not use Plumbref to inspect production data or external systems.
 """
