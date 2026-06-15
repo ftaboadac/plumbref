@@ -822,6 +822,7 @@ def build_safe_answer_summary(state: SessionState) -> dict[str, Any]:
             "text": claim.text,
             "status": claim.status.value,
             "limits": judgment.limits if judgment else "",
+            "safer_wording": preferred_safer_wording(judgment),
         }
         if claim.status == ClaimStatus.SUPPORTED:
             supported.append(item)
@@ -836,6 +837,12 @@ def build_safe_answer_summary(state: SessionState) -> dict[str, Any]:
     }
 
 
+def preferred_safer_wording(judgment: Any | None) -> str:
+    if not judgment:
+        return ""
+    return judgment.safer_wording.strip() or judgment.limits.strip()
+
+
 def format_quality_summary(quality: dict[str, Any]) -> list[str]:
     answer_gate = quality["answer_gate"]
     lines = [
@@ -846,20 +853,22 @@ def format_quality_summary(quality: dict[str, Any]) -> list[str]:
     supported = safe_answer["supported"]
     qualified = safe_answer["qualified"]
     avoid = safe_answer["avoid"]
-    lines.append(f"- Claim outcome: {len(supported)} supported, {len(qualified)} qualified, {len(avoid)} avoid")
+    lines.append(f"- Reliance outcome: {len(supported)} safe, {len(qualified)} qualified, {len(avoid)} avoid")
     if supported:
-        lines.append("- Safe to say:")
+        lines.append("- Safe to rely on:")
         for item in supported[:6]:
             lines.append(f"  - {item['text']}")
     if qualified:
         lines.append("- Say with qualification:")
         for item in qualified[:6]:
-            suffix = f" Limits: {item['limits']}" if item["limits"] else ""
+            safer = item["safer_wording"]
+            suffix = f" Safer wording: {safer}" if safer else ""
             lines.append(f"  - {item['status']}: {item['text']}{suffix}")
     if avoid:
-        lines.append("- Avoid:")
+        lines.append("- Do not rely on:")
         for item in avoid[:6]:
-            suffix = f" Limits: {item['limits']}" if item["limits"] else ""
+            safer = item["safer_wording"]
+            suffix = f" Safer wording: {safer}" if safer else ""
             lines.append(f"  - {item['status']}: {item['text']}{suffix}")
     return lines
 
@@ -1099,6 +1108,8 @@ def render_claim_detail(
             f"- Reasoning: {redact_text(judgment.reasoning_summary, config.privacy_patterns) or 'Not provided.'}"
         )
         lines.append(f"- Limits: {redact_text(judgment.limits, config.privacy_patterns) or 'Not provided.'}")
+        if judgment.safer_wording:
+            lines.append(f"- Safer wording: {redact_text(judgment.safer_wording, config.privacy_patterns)}")
         lines.append(f"- Contradiction pass: {'yes' if judgment.contradiction_searched else 'no'}")
     evidence_for_claim = [
         snippet for snippet in state.evidence.values() if snippet.claim_id == claim.id or claim.id in snippet.claim_ids
@@ -1178,15 +1189,31 @@ def build_inline_answer(
     lines = [inline_answer_opening(answer_gate)]
     supported_lines = inline_supported_lines(safe_answer["supported"], config)
     if supported_lines:
+<<<<<<< Updated upstream
         lines.extend(["", "What Plumbref checked:", *supported_lines])
+=======
+        lines.extend(["", "Safe to rely on:", *supported_lines])
+>>>>>>> Stashed changes
 
-    limit_lines = inline_limit_lines(state, safe_answer, config)
-    if limit_lines:
-        lines.extend(["", "Important limits:", *limit_lines])
+    qualified_lines = inline_qualified_lines(state, safe_answer, config)
+    if qualified_lines:
+        lines.extend(["", "Say with qualification:", *qualified_lines])
+
+    avoid_lines = inline_avoid_lines(safe_answer, config)
+    if avoid_lines:
+        lines.extend(["", "Do not rely on:", *avoid_lines])
+
+    safer_lines = inline_safer_wording_lines(safe_answer, config)
+    if safer_lines:
+        lines.extend(["", "Safer wording:", *safer_lines])
 
     evidence_lines = inline_evidence_lines(state, config)
     if evidence_lines:
-        lines.extend(["", "Evidence checked:", *evidence_lines])
+        lines.extend(["", "Evidence:", *evidence_lines])
+
+    unchecked_lines = inline_unchecked_lines(quality, config)
+    if unchecked_lines:
+        lines.extend(["", "Unchecked:", *unchecked_lines])
 
     lines.extend(["", f"Verification: {inline_measurement_summary(state, measurement)}"])
 
@@ -1196,14 +1223,14 @@ def build_inline_answer(
 def inline_answer_opening(answer_gate: dict[str, Any]) -> str:
     status = answer_gate["status"]
     if status == "safe_to_answer":
-        return "Based on checked evidence, this answer is supported."
+        return "Based on checked evidence, these codebase claims are safe to rely on within the checked scope."
     if status == "answer_with_qualifications":
-        return "Based on checked evidence, answer with these qualifications."
+        return "Based on checked evidence, rely on this only with the qualifications below."
     if status == "answer_with_limits":
-        return "Based on checked evidence, answer with these limits."
+        return "Based on checked evidence, rely on this only within the limits below."
     if status == "do_not_claim":
         return "Plumbref found source evidence against the answer as written."
-    return "Plumbref does not have enough checked evidence to answer yet."
+    return "Plumbref does not have enough checked evidence to rely on this yet."
 
 
 def inline_supported_lines(items: list[dict[str, Any]], config: PlumbrefConfig) -> list[str]:
@@ -1225,8 +1252,11 @@ def shorten_inline_claim(text: str) -> str:
         ";",
         ", and passes",
         " and passes",
+<<<<<<< Updated upstream
         ", and the checked frontend test",
         " and the checked frontend test",
+=======
+>>>>>>> Stashed changes
         ", and tests",
         " and tests",
     ):
@@ -1236,11 +1266,16 @@ def shorten_inline_claim(text: str) -> str:
     return text
 
 
+<<<<<<< Updated upstream
 def inline_limit_lines(
+=======
+def inline_qualified_lines(
+>>>>>>> Stashed changes
     state: SessionState,
     safe_answer: dict[str, Any],
     config: PlumbrefConfig,
 ) -> list[str]:
+<<<<<<< Updated upstream
     limits: list[tuple[int, str]] = []
     for item in [*safe_answer["qualified"], *safe_answer["avoid"]]:
         if item["limits"]:
@@ -1264,11 +1299,31 @@ def inline_limit_lines(
         [redact_text(limit, config.privacy_patterns) for limit in ordered_limits if limit.strip()]
     )
     lines = [f"- {ensure_sentence(limit)}" for limit in deduped[:4]]
+=======
+    items: list[tuple[int, str]] = []
+    for claim in state.claims.values():
+        judgment = state.judgments.get(claim.id)
+        if not judgment or not judgment.limits.strip():
+            continue
+        if claim.status != ClaimStatus.SUPPORTED:
+            continue
+        if not is_material_supported_limit(judgment.limits):
+            continue
+        items.append((supported_limit_priority(claim, judgment.limits), judgment.limits))
+
+    for item in safe_answer["qualified"]:
+        items.append((-100, status_claim_text(item)))
+
+    ordered = [text for _priority, text in sorted(items, key=lambda item: item[0])]
+    deduped = dedupe_preserve_order([redact_text(text, config.privacy_patterns) for text in ordered if text.strip()])
+    lines = [f"- {ensure_sentence(text)}" for text in deduped[:4]]
+>>>>>>> Stashed changes
     if len(deduped) > 4:
-        lines.append(f"- {len(deduped) - 4} more limit(s) in the report.")
+        lines.append(f"- {len(deduped) - 4} more qualification(s) in the report.")
     return lines
 
 
+<<<<<<< Updated upstream
 def inline_limit_priority(claim: Any, limit: str) -> int:
     normalized = normalize_check_text(limit)
     priority = 50
@@ -1278,6 +1333,39 @@ def inline_limit_priority(claim: Any, limit: str) -> int:
         priority -= 20
     if "idempotency" in normalized or "server side" in normalized or "server side duplicate" in normalized:
         priority -= 15
+=======
+def inline_avoid_lines(safe_answer: dict[str, Any], config: PlumbrefConfig) -> list[str]:
+    texts = [status_claim_text(item) for item in safe_answer["avoid"]]
+    deduped = dedupe_preserve_order([redact_text(text, config.privacy_patterns) for text in texts if text.strip()])
+    lines = [f"- {ensure_sentence(text)}" for text in deduped[:4]]
+    if len(deduped) > 4:
+        lines.append(f"- {len(deduped) - 4} more avoid item(s) in the report.")
+    return lines
+
+
+def inline_safer_wording_lines(safe_answer: dict[str, Any], config: PlumbrefConfig) -> list[str]:
+    texts = [
+        item["safer_wording"]
+        for item in [*safe_answer["qualified"], *safe_answer["avoid"]]
+        if item.get("safer_wording")
+    ]
+    deduped = dedupe_preserve_order([redact_text(text, config.privacy_patterns) for text in texts if text.strip()])
+    lines = [f"- {ensure_sentence(truncate_words(text, 260))}" for text in deduped[:4]]
+    if len(deduped) > 4:
+        lines.append(f"- {len(deduped) - 4} more safer wording item(s) in the report.")
+    return lines
+
+
+def status_claim_text(item: dict[str, Any]) -> str:
+    return f"{item['status']}: {item['text']}"
+
+
+def supported_limit_priority(claim: Any, limit: str) -> int:
+    normalized = normalize_check_text(limit)
+    priority = 50
+    if claim.risk == RiskLevel.HIGH:
+        priority -= 20
+>>>>>>> Stashed changes
     if "not found" in normalized or "did not find" in normalized or "no focused" in normalized:
         priority -= 12
     if "no browser" in normalized or "not execute" in normalized:
@@ -1285,6 +1373,7 @@ def inline_limit_priority(claim: Any, limit: str) -> int:
     return priority
 
 
+<<<<<<< Updated upstream
 def qualified_inline_limit_text(item: dict[str, Any]) -> str:
     text = item["text"].strip()
     limits = item["limits"].strip()
@@ -1295,6 +1384,8 @@ def qualified_inline_limit_text(item: dict[str, Any]) -> str:
     return f"{item['status']}: {text} Limits: {limits}"
 
 
+=======
+>>>>>>> Stashed changes
 def is_material_supported_limit(limit: str) -> bool:
     normalized = normalize_check_text(limit)
     if not normalized:
@@ -1330,6 +1421,35 @@ def inline_evidence_lines(state: SessionState, config: PlumbrefConfig) -> list[s
     return [f"- `{location}`" for location in dedupe_preserve_order(locations)[:4]]
 
 
+def inline_unchecked_lines(quality: dict[str, Any], config: PlumbrefConfig) -> list[str]:
+    unchecked = [humanize_unchecked_item(item) for item in quality.get("next_checks", [])]
+    if not unchecked:
+        unchecked = [f"Missing check: {item}." for item in quality.get("not_checked", [])]
+    deduped = dedupe_preserve_order([redact_text(item, config.privacy_patterns) for item in unchecked if item.strip()])
+    lines = [f"- {ensure_sentence(item)}" for item in deduped[:3]]
+    if len(deduped) > 3:
+        lines.append(f"- {len(deduped) - 3} more unchecked item(s) in the report.")
+    return lines
+
+
+def humanize_unchecked_item(item: str) -> str:
+    if item.startswith("Run or record required search: "):
+        return "Required search not recorded: " + item.removeprefix("Run or record required search: ")
+    if item.startswith("Run or record contradiction search: "):
+        return "Conflicting-code-path search not recorded: " + item.removeprefix(
+            "Run or record contradiction search: "
+        )
+    if item.startswith("Provide template value"):
+        return item
+    if item.startswith("Read evidence for required category: "):
+        return "Required evidence not read: " + item.removeprefix("Read evidence for required category: ")
+    if item.startswith("Record judgments"):
+        return item
+    if item.startswith("Store atomic claims"):
+        return item
+    return item
+
+
 def inline_measurement_summary(state: SessionState, measurement: dict[str, Any]) -> str:
     status_counts = measurement["claim_status_counts"]
     status_text = ", ".join(f"{status}={count}" for status, count in status_counts.items()) or "no claims"
@@ -1339,6 +1459,20 @@ def inline_measurement_summary(state: SessionState, measurement: dict[str, Any])
         f"{evidence_count} evidence snippet(s); "
         f"{measurement['contradiction_passes']}/{measurement['judged_claims']} contradiction pass(es)."
     )
+
+
+def truncate_words(text: str, max_chars: int) -> str:
+    stripped = text.strip()
+    if len(stripped) <= max_chars:
+        return stripped
+    words = stripped.split()
+    shortened: list[str] = []
+    for word in words:
+        candidate = " ".join([*shortened, word])
+        if len(candidate) > max_chars - 1:
+            break
+        shortened.append(word)
+    return (" ".join(shortened) or stripped[: max_chars - 1]).rstrip(" ,;:") + "..."
 
 
 def user_answer(state: SessionState, config: PlumbrefConfig) -> list[str]:
@@ -1453,6 +1587,9 @@ def format_qualified_answer_group(
 
 
 def qualified_answer_sentence(item: dict[str, Any], config: PlumbrefConfig) -> str:
+    safer = redact_text(item["safer_wording"], config.privacy_patterns)
+    if safer:
+        return ensure_sentence(safer)
     limits = redact_text(item["limits"], config.privacy_patterns)
     if limits:
         return ensure_sentence(limits)
@@ -1501,16 +1638,16 @@ def explanation_safe_answer(state: SessionState, config: PlumbrefConfig) -> list
             lines.append("")
         lines.append("Needs qualification:")
         for item in qualified:
-            limits = redact_text(item["limits"], config.privacy_patterns)
-            suffix = f" Limits: {limits}" if limits else ""
+            safer = redact_text(item["safer_wording"], config.privacy_patterns)
+            suffix = f" Safer wording: {safer}" if safer else ""
             lines.append(f"- {item['status']}: {redact_text(item['text'], config.privacy_patterns)}{suffix}")
     if avoid:
         if lines:
             lines.append("")
-        lines.append("Avoid claiming:")
+        lines.append("Do not rely on:")
         for item in avoid:
-            limits = redact_text(item["limits"], config.privacy_patterns)
-            suffix = f" Limits: {limits}" if limits else ""
+            safer = redact_text(item["safer_wording"], config.privacy_patterns)
+            suffix = f" Safer wording: {safer}" if safer else ""
             lines.append(f"- {item['status']}: {redact_text(item['text'], config.privacy_patterns)}{suffix}")
     return lines or ["No supported wording is available yet."]
 
@@ -1571,8 +1708,8 @@ def change_impact_uncertain_areas(state: SessionState, config: PlumbrefConfig) -
     lines: list[str] = []
     for claim in risky:
         judgment = state.judgments.get(claim.id)
-        limits = redact_text(judgment.limits, config.privacy_patterns) if judgment else ""
-        suffix = f" Limits: {limits}" if limits else ""
+        safer = redact_text(preferred_safer_wording(judgment), config.privacy_patterns) if judgment else ""
+        suffix = f" Safer wording: {safer}" if safer else ""
         lines.append(f"- {claim.status.value}: {redact_text(claim.text, config.privacy_patterns)}{suffix}")
     return lines
 
@@ -1607,8 +1744,8 @@ def change_impact_safe_statement(state: SessionState, config: PlumbrefConfig) ->
         lines.append("Qualify or avoid:")
         for claim in risky:
             judgment = state.judgments.get(claim.id)
-            limits = redact_text(judgment.limits, config.privacy_patterns) if judgment else ""
-            suffix = f" Safer wording: {limits}" if limits else ""
+            safer = redact_text(preferred_safer_wording(judgment), config.privacy_patterns) if judgment else ""
+            suffix = f" Safer wording: {safer}" if safer else ""
             lines.append(f"- {claim.status.value}: {redact_text(claim.text, config.privacy_patterns)}{suffix}")
     return lines
 
@@ -1644,8 +1781,8 @@ def scenario_safe_conclusion(state: SessionState, config: PlumbrefConfig) -> lis
         lines.append("Needs qualification:")
         for claim in risky:
             judgment = state.judgments.get(claim.id)
-            limits = redact_text(judgment.limits, config.privacy_patterns) if judgment else ""
-            suffix = f" Limits: {limits}" if limits else ""
+            safer = redact_text(preferred_safer_wording(judgment), config.privacy_patterns) if judgment else ""
+            suffix = f" Safer wording: {safer}" if safer else ""
             lines.append(f"- {claim.status.value}: {safe_outcome_text(claim, config)}{suffix}")
     return lines
 

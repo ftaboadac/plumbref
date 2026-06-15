@@ -7,30 +7,30 @@
 
 ![A plumb line suspended over a dark surface](docs/assets/plumbref-readme-hero.png)
 
-Plumbref is a local verification harness for coding agents.
+Plumbref verifies AI codebase claims before you rely on them.
 
-It gives agents an evidence gate: before they answer confidently, they break
-the answer into claims, search the repository, read bounded source snippets,
-record conservative judgments, and return a concise source-backed inline
-answer. When the answer is risky, qualified, or explicitly requested, Plumbref
-also writes an inspectable report.
+It gives coding agents an evidence gate: before you repeat or act on an answer,
+the agent breaks it into claims, checks local repository evidence, and returns
+what is safe to rely on, what needs qualification, what not to rely on, and the
+source lines behind that call. When the answer is risky, qualified, or
+explicitly requested, Plumbref also writes an inspectable report.
 
-Ask natural questions about your repository:
+Ask natural reliance-check questions about your repository:
 
 ```text
-How does the nightly account cleanup job work?
+The agent said this only affects onboarding. Check that.
 ```
 
 ```text
-What should we consider if we move customer_external_id from Account to AccountConnection?
+Can I tell support that SSO only depends on Okta?
 ```
 
 ```text
-Could this code change affect downstream consumers or adjacent flows?
+The agent says this field is safe to rename. What is actually supported?
 ```
 
-The goal is fewer "are you sure?" loops, less blind source reading, and answers
-your team can check.
+The goal is to replace vague "are you sure?" loops with source-backed reliance
+decisions your team can inspect.
 
 Plumbref is local-first. It does not call a model API, require an API key,
 upload your repository, use a database, depend on a vector store, or run a
@@ -38,9 +38,10 @@ hosted service.
 
 ## Why
 
-Prompts and skills can ask an agent to be careful, but they do not preserve a
-structured verification trail. Plumbref gates coding-agent answers against
-recorded source evidence.
+Prompts and skills can ask an agent to be careful, but they often produce more
+prose when you ask "are you sure?" Plumbref gates coding-agent answers against
+recorded source evidence and turns them into safe-to-rely-on statements with
+explicit limits.
 
 The agent still extracts claims and reasons over evidence. Plumbref supplies
 the source-grounded workflow, budgets, redaction, status semantics, and report
@@ -52,8 +53,28 @@ artifacts.
 2. Add it to your MCP-capable coding agent for a repository.
 3. Ask repo questions naturally in chat.
 4. The agent uses Plumbref tools to verify claims against source evidence.
-5. You get a concise answer with cited files, supported claims, uncertain
-   areas, limits, and safer wording.
+5. You get a concise answer with safe-to-rely-on claims, qualified claims,
+   do-not-rely-on claims, evidence locations, unchecked areas, and safer wording.
+
+Example inline answer shape:
+
+```text
+Safe to rely on:
+- The checked function rewrites the report label from "items" to "records".
+
+Say with qualification:
+- too_broad: The change only affects formatting.
+
+Safer wording:
+- The checked function changes report-label wording, but downstream exports were
+  not fully traced.
+
+Evidence:
+- `src/reports/labels.ts:41-58`
+
+Unchecked:
+- Conflicting-code-path search not recorded: generated client exports.
+```
 
 You should not need to manually run verification commands during normal use.
 The CLI exists mainly for setup, smoke tests, debugging, and report rendering.
@@ -76,8 +97,8 @@ The CLI exists mainly for setup, smoke tests, debugging, and report rendering.
 - built-in templates for flow explanation, field migration, change impact,
   downstream consumers, and external integrations
 - Markdown and JSON reports
-- broad-claim detection for words like `only`, `always`, `never`, `all`,
-  `every`, and `guarantee`
+- broad-claim detection for phrases like `only`, `safe to`, `no downstream`,
+  `always`, `never`, `all`, `every`, and `guarantee`
 - local repository search through ripgrep
 - source snippet bounds, redaction patterns, budgets, and cache metrics
 
@@ -196,17 +217,24 @@ inline in chat without creating report files. Set `report_policy = "manual"` to
 write reports only when explicitly forced, or `report_policy = "always"` to
 write one for every rendered Plumbref result.
 
-Written reports lead with a verification outcome: whether the agent can answer
-from checked evidence, must qualify the answer, or should avoid the claim as
-written. They also include broad-claim findings, safer wording, cited evidence,
-search traces, limits, and cache metrics. `.cache/plumbref/reports/index.json`
-tracks reports that were actually written.
+Written reports lead with a verification outcome: whether the claim is safe to
+rely on from checked evidence, needs qualification, or should not be relied on
+as written. They also include broad-claim findings, safer wording, cited
+evidence, search traces, limits, and cache metrics.
+`.cache/plumbref/reports/index.json` tracks reports that were actually written.
 
 MCP render responses include `inline_answer`: the chat-shaped answer agents
+<<<<<<< Updated upstream
 should return by default. It summarizes what Plumbref checked, the important
 limits, evidence locations, and verification counts. Markdown and JSON reports
 are the inspectable receipt behind that answer, not the primary user-facing
 surface.
+=======
+should return by default. It summarizes what is safe to rely on, what needs
+qualification, what not to rely on, safer wording, evidence locations,
+unchecked areas, and verification counts. Markdown and JSON reports are the
+inspectable receipt behind that answer, not the primary user-facing surface.
+>>>>>>> Stashed changes
 
 Agents can compare two JSON reports for the same question through the MCP
 `plumbref_diff_reports` tool. The tool returns structured claim changes plus a
@@ -229,6 +257,7 @@ without repasting source text.
 
 Checked-in example reports:
 
+- [Reliance-check overclaim demo](examples/reports/reliance-check-overclaim-demo.md)
 - [Dogfood template-loading demo](examples/reports/plumbref-template-loading-demo.md)
 - [Real MCP template-loading report](examples/reports/real-template-loading-mcp.md)
 - [Real MCP template_id migration report](examples/reports/real-template-id-migration-mcp.md)

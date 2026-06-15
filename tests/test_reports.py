@@ -64,10 +64,17 @@ def test_report_renders_markdown_and_json(tmp_path: Path) -> None:
     report = render_report(state=state, config=config)
 
     assert report.json_report["verdict"] == "Supported"
+<<<<<<< Updated upstream
     assert report.inline_answer.startswith("Based on checked evidence, this answer is supported.")
     assert "What Plumbref checked:" in report.inline_answer
+=======
+    assert report.inline_answer.startswith(
+        "Based on checked evidence, these codebase claims are safe to rely on within the checked scope."
+    )
+    assert "Safe to rely on:" in report.inline_answer
+>>>>>>> Stashed changes
     assert "The scheduled job skips work when provider_id is missing." in report.inline_answer
-    assert "Evidence checked:" in report.inline_answer
+    assert "Evidence:" in report.inline_answer
     assert "`app.py:9-11`" in report.inline_answer
     assert (
         "Verification: 1 claim(s) (supported=1); 1 evidence snippet(s); 1/1 contradiction pass(es)."
@@ -149,6 +156,7 @@ def test_on_demand_policy_writes_qualified_result_to_dated_report_path(tmp_path:
         status=ClaimStatus.TOO_BROAD,
         reasoning_summary="Evidence supports one function, not every job.",
         limits="Say run_scheduled_job skips missing provider_id.",
+        safer_wording="run_scheduled_job skips missing provider_id in the checked implementation.",
     )
 
     report = render_report(state=state, config=config)
@@ -314,7 +322,7 @@ def test_scenario_report_labels_predicted_outcomes(tmp_path: Path) -> None:
     assert "Predicted outcome: The scheduled job is skipped." in report.markdown
     assert "## Answer Under Review" in report.markdown
     assert "## Safe Conclusion" not in report.markdown
-    assert "Safe to say:" in report.markdown
+    assert "Safe to rely on:" in report.markdown
     assert "run_scheduled_job returns skipped when provider_id is missing." in report.markdown
     assert "Say with qualification:" in report.markdown
     assert (
@@ -400,7 +408,7 @@ def test_change_impact_report_renders_scope_and_safe_statement(tmp_path: Path) -
     assert "## Answer Under Review" in report.markdown
     assert "## Change Scope" in report.markdown
     assert "## Safer Impact Statement" not in report.markdown
-    assert "Safe to say:" in report.markdown
+    assert "Safe to rely on:" in report.markdown
     assert "The change affects report wording from items to records." in report.markdown
     assert "Say with qualification:" in report.markdown
     assert (
@@ -525,11 +533,13 @@ def test_report_outcome_qualifies_too_broad_claims(tmp_path: Path) -> None:
         evidence_ids=[snippet.id],
         reasoning_summary="Evidence supports one function, not every job.",
         limits="Say run_scheduled_job skips missing provider_id.",
+        safer_wording="run_scheduled_job skips missing provider_id in the checked implementation.",
     )
 
     report = render_report(state=state, config=config, write_files=False)
 
     quality = report.json_report["quality"]
+<<<<<<< Updated upstream
     assert report.inline_answer.startswith("Based on checked evidence, answer with these qualifications.")
     assert "Important limits:" in report.inline_answer
     assert (
@@ -538,6 +548,18 @@ def test_report_outcome_qualifies_too_broad_claims(tmp_path: Path) -> None:
         in report.inline_answer
     )
     assert report.inline_answer.count("Say run_scheduled_job skips missing provider_id.") == 1
+=======
+    assert report.inline_answer.startswith(
+        "Based on checked evidence, rely on this only with the qualifications below."
+    )
+    assert "Say with qualification:" in report.inline_answer
+    assert "too_broad: Every job skips missing providers." in report.inline_answer
+    assert "Safer wording:" in report.inline_answer
+    assert "run_scheduled_job skips missing provider_id in the checked implementation." in report.inline_answer
+    assert report.json_report["claims"][0]["judgment"]["safer_wording"] == (
+        "run_scheduled_job skips missing provider_id in the checked implementation."
+    )
+>>>>>>> Stashed changes
     assert (
         "Verification: 1 claim(s) (too_broad=1); 1 evidence snippet(s); 0/1 contradiction pass(es)."
         in report.inline_answer
@@ -546,6 +568,61 @@ def test_report_outcome_qualifies_too_broad_claims(tmp_path: Path) -> None:
     assert "Answer gate: Answer with qualifications" in report.markdown
     assert "Say with qualification:" in report.markdown
     assert "too_broad: Every job skips missing providers." in report.markdown
+
+
+def test_inline_answer_rejects_contradicted_claims(tmp_path: Path) -> None:
+    """Contradicted claims are shown as do-not-rely-on decisions with safer wording."""
+    repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
+    harness = PlumbrefHarness()
+    state = harness.start_session(
+        repo_root=repo_root,
+        question="The agent said this only changes docs. Check that.",
+        answer="This only changes docs.",
+        template_id="generic_verification",
+        template_values={
+            "primary_entity": "docs",
+            "primary_action": "change",
+            "claim_keyword": "only",
+        },
+    )
+    claim = ClaimWorkItem(
+        text="This only changes docs.",
+        claim_type=ClaimType.IMPACT,
+        risk=RiskLevel.HIGH,
+    )
+    harness.store_claims([claim], session_id=state.session.id)
+    config = load_config(repo_root)
+    config.cache_path = tmp_path / "cache"
+    snippet = read_evidence(
+        state=state,
+        config=config,
+        claim_id=claim.id,
+        file="app.py",
+        start_line=19,
+        end_line=20,
+        summary="A non-doc Python function changes report wording.",
+        evidence_category="direct implementation",
+    )
+    record_judgment(
+        state=state,
+        claim_id=claim.id,
+        status=ClaimStatus.CONTRADICTED,
+        evidence_ids=[snippet.id],
+        reasoning_summary="First-order evidence includes a non-doc code file.",
+        limits="Do not rely on only-docs wording.",
+        safer_wording="This includes a non-doc code change to report wording.",
+        contradiction_searched=True,
+    )
+
+    report = render_report(state=state, config=config, write_files=False)
+
+    assert report.inline_answer.startswith("Plumbref found source evidence against the answer as written.")
+    assert "Do not rely on:" in report.inline_answer
+    assert "contradicted: This only changes docs." in report.inline_answer
+    assert "Safer wording:" in report.inline_answer
+    assert "This includes a non-doc code change to report wording." in report.inline_answer
+    assert "Say with qualification:" not in report.inline_answer
+    assert report.json_report["quality"]["answer_gate"]["status"] == "do_not_claim"
 
 
 def test_report_quality_requires_template_values_for_placeholder_only_searches() -> None:
@@ -584,6 +661,10 @@ def test_report_quality_requires_template_values_for_placeholder_only_searches()
         item == "Provide template value(s) for flow_name before checking required search: {flow_name}."
         for item in report.json_report["quality"]["next_checks"]
     )
+<<<<<<< Updated upstream
+=======
+    assert "Unchecked:" in report.inline_answer
+>>>>>>> Stashed changes
     assert "Next check:" not in report.inline_answer
 
 
