@@ -46,6 +46,7 @@ class ClaimSnapshot:
     claim_type: str
     evidence: tuple[EvidenceRef, ...]
     limits: str
+    safer_wording: str
     contradiction_searched: bool
 
 
@@ -190,6 +191,7 @@ def claim_snapshots(report: dict[str, Any]) -> dict[str, ClaimSnapshot]:
             claim_type=str(claim.get("claim_type") or "unknown"),
             evidence=tuple(sorted(evidence, key=lambda item: item.label())),
             limits=str(judgment.get("limits") or ""),
+            safer_wording=str(judgment.get("safer_wording") or ""),
             contradiction_searched=bool(judgment.get("contradiction_searched")),
         )
     return snapshots
@@ -322,6 +324,7 @@ def serialize_claim_snapshot(snapshot: ClaimSnapshot | None) -> dict[str, Any] |
         "status": snapshot.status,
         "claim_type": snapshot.claim_type,
         "limits": snapshot.limits,
+        "safer_wording": snapshot.safer_wording,
         "contradiction_searched": snapshot.contradiction_searched,
         "evidence": [
             {
@@ -379,6 +382,11 @@ def render_claim_diff(diff: ClaimDiff) -> list[str]:
             )
         if before.limits != after.limits:
             lines.append(f"- Limits changed: `{before.limits or 'none'}` -> `{after.limits or 'none'}`")
+        if before.safer_wording != after.safer_wording:
+            lines.append(
+                "- Safer wording changed: "
+                f"`{before.safer_wording or 'none'}` -> `{after.safer_wording or 'none'}`"
+            )
         lines.extend(format_evidence_delta("Old evidence", before.evidence))
         lines.extend(format_evidence_delta("New evidence", after.evidence))
     elif after:
@@ -440,8 +448,9 @@ def headline_summary(diffs: list[ClaimDiff]) -> str:
                 f"`{primary.old.text}` changed from `{primary.old.status}` "
                 f"to `{primary.new.status}`"
             )
-            if primary.new.limits:
-                details += f"; updated wording: {primary.new.limits.rstrip('.')}"
+            updated_wording = primary.new.safer_wording or primary.new.limits
+            if updated_wording:
+                details += f"; updated wording: {updated_wording.rstrip('.')}"
             if len(status_changes) > 1:
                 details += f" ({len(status_changes) - 1} more status change(s))."
             else:

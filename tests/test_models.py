@@ -61,6 +61,19 @@ def test_claim_detects_broad_language() -> None:
     assert claim.absolute_language == ["always", "every", "guarantees"]
 
 
+def test_claim_detects_reliance_risk_phrases() -> None:
+    """Claims record common overclaim phrases users should not rely on casually."""
+    claim = ClaimWorkItem(
+        text="This is safe to rename, only needs a model change, and has no downstream consumers."
+    )
+
+    assert "safe to" in claim.absolute_language
+    assert "only needs" in claim.absolute_language
+    assert "only" in claim.absolute_language
+    assert "no downstream" in claim.absolute_language
+    assert "no consumers" in claim.absolute_language
+
+
 def test_supported_broad_claim_requires_contradiction_notes(tmp_path: Path) -> None:
     """Broad claims need explicit notes before they can be marked supported."""
     harness = PlumbrefHarness()

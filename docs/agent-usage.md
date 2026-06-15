@@ -2,9 +2,11 @@
 
 Plumbref is intended to run behind a coding agent through MCP. The user should
 ask normal repository questions in chat; the agent should use Plumbref tools to
-turn the answer into a bounded, source-backed inline answer. A Markdown report
-is the inspectable receipt when the answer is risky, qualified, or explicitly
-requested.
+verify AI codebase claims before the user relies on them. The primary output is
+a bounded, source-backed inline answer that says what is safe to rely on, what
+needs qualification, what not to rely on, and what source lines were checked. A
+Markdown report is the inspectable receipt when the answer is risky, qualified,
+or explicitly requested.
 
 This guide is written for Codex, Claude Code, Cursor, and other MCP-capable
 coding agents. The examples are intentionally generic and avoid company- or
@@ -91,9 +93,15 @@ client-specific MCP configuration location and restart or reload the client.
 Use this as a recommended agent instruction block:
 
 ```text
-When answering repository behavior, migration-risk, downstream-consumer, or
-change-impact questions, use Plumbref through MCP before giving a confident
-answer.
+When a user may rely on an AI answer about repository behavior, migration risk,
+downstream consumers, or change impact, use Plumbref through MCP before giving
+a confident answer.
+
+Trigger Plumbref explicitly when the user says things like "audit that",
+"check that with Plumbref", "can I rely on this", "what can I safely say", or
+"run this before I send/merge". Also use it automatically for risky claims that
+use wording such as only, safe to, no downstream, always, never, all, every, or
+guarantee.
 
 Workflow:
 1. Choose the closest Plumbref template. Use generic_verification if no
@@ -106,13 +114,18 @@ Workflow:
    into one claim.
 4. Search narrowly for each claim using the template's required searches.
 5. Run contradiction searches before marking a claim supported, especially when
-   the wording uses only, always, never, all, none, or guarantees.
+   the wording uses only, safe to, no downstream, always, never, all, none, or
+   guarantees. For broad claims, run the first-order checks needed to answer
+   the claim as written before returning: changed files, non-doc/code changes,
+   direct callers/references, relevant tests, and obvious docs/config references.
 6. Read bounded snippets only around relevant source lines. Tag snippets with
    the closest template evidence_category when possible. Cache hits and reused
    evidence may return compact references; ask for include_excerpt=true only
    when source text needs to be inspected again.
 7. Record conservative judgments. Use supported only when cited evidence
-   supports the claim as written and a contradiction pass was completed.
+   supports the claim as written and a contradiction pass was completed. For
+   too-broad, contradicted, uncertain, not-found, or not-verifiable claims,
+   provide safer_wording when there is wording the user can rely on instead.
 8. Render the Plumbref result. Return the `inline_answer` in chat by default.
    Let `report_policy` decide whether report files should be written, unless
    the user explicitly asks for a report.
@@ -120,13 +133,17 @@ Workflow:
 Answering rules:
 - Prefer cited source evidence over confidence.
 - Say what was not checked.
-- Use the report's answer gate: answer from checked evidence, qualify
-  too-broad claims, and do not claim contradicted or unverifiable parts.
+- Do not leave the obvious check unchecked when it is required to answer the
+  user's actual reliance question.
+- Use the report's answer gate: say what is safe to rely on from checked
+  evidence, qualify too-broad claims, and do not rely on contradicted or
+  unverifiable parts.
 - Keep normal answers inline with `inline_answer`. Mention report paths only
   when a report was written because the user asked, the answer is risky, or
   the answer needs qualifications.
 - If the repo is too large for the current budget, say the result is bounded by
   that budget and suggest a deeper pass.
+- Treat supported as supported by checked evidence, not globally true.
 - Do not claim global truth from local snippets.
 - Do not use Plumbref to inspect production data or external systems.
 ```
@@ -333,23 +350,31 @@ After rendering a Plumbref result, the agent should use the returned
 `inline_answer` as the default chat response:
 
 ```text
-I verified this with Plumbref using the change_impact template.
+Based on checked evidence, rely on this only with the qualifications below.
 
-Supported:
+Safe to rely on:
 - The changed function rewrites the report label from "items" to "records".
 
-Needs qualification:
-- "Only affects formatting" is too broad under the normal budget because caller
-  coverage was incomplete.
+Say with qualification:
+- too_broad: The change only affects formatting.
+
+Safer wording:
+- The checked function changes report-label wording, but caller coverage was
+  incomplete, so generated clients and downstream exports still need review.
+
+Evidence:
+- `src/reports/labels.ts:41-58`
+- `src/reports/labels.test.ts:12-27`
 
 Unchecked:
-- No deeper pass was run through generated clients or external docs.
+- Conflicting-code-path search not recorded: generated client exports.
 
-Report: .cache/plumbref/reports/YYYY-MM-DD/<session-id>.md
+Verification: 2 claim(s) (supported=1, too_broad=1); 2 evidence snippet(s);
+1/2 contradiction pass(es).
 ```
 
 The report is the detailed artifact. `inline_answer` is the chat surface: it
-summarizes the verdict, important supported claims, uncertain areas, safer
-wording, evidence locations, and verification counts. For low-risk fully
-supported answers, keep the result inline and do not mention a report path
-unless one was written.
+summarizes what is safe to rely on, what needs qualification, what not to rely
+on, safer wording, evidence locations, unchecked areas, and verification
+counts. For low-risk fully supported answers, keep the result inline and do not
+mention a report path unless one was written.

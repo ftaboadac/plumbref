@@ -165,6 +165,7 @@ def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
         evidence_ids: list[str] | None = None,
         reasoning_summary: str = "",
         limits: str = "",
+        safer_wording: str = "",
         contradiction_searched: bool = False,
         contradiction_notes: str = "",
     ) -> dict[str, Any]:
@@ -177,6 +178,7 @@ def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
             evidence_ids=evidence_ids,
             reasoning_summary=reasoning_summary,
             limits=limits,
+            safer_wording=safer_wording,
             contradiction_searched=contradiction_searched,
             contradiction_notes=contradiction_notes,
         )

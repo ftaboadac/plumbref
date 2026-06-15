@@ -187,16 +187,26 @@ class ClaimWorkItem(BaseModel):
         return self
 
 
-BROAD_LANGUAGE_TERMS = (
-    "all",
-    "always",
-    "every",
-    "guarantee",
-    "guaranteed",
-    "guarantees",
-    "never",
-    "none",
-    "only",
+BROAD_LANGUAGE_PATTERNS = (
+    ("all users", r"\ball\s+users\b"),
+    ("all", r"\ball\b"),
+    ("always", r"\balways\b"),
+    ("cannot happen", r"\bcannot\s+happen\b"),
+    ("does not affect", r"\bdoes\s+not\s+affect\b"),
+    ("every customer", r"\bevery\s+customer\b"),
+    ("every", r"\bevery\b"),
+    ("guarantee", r"\bguarantee\b"),
+    ("guaranteed", r"\bguaranteed\b"),
+    ("guarantees", r"\bguarantees\b"),
+    ("just", r"\bjust\b"),
+    ("never", r"\bnever\b"),
+    ("no callers", r"\bno\b(?:\s+[a-z0-9_]+){0,3}\s+callers\b"),
+    ("no consumers", r"\bno\b(?:\s+[a-z0-9_]+){0,3}\s+consumers\b"),
+    ("no downstream", r"\bno\s+downstream\b"),
+    ("none", r"\bnone\b"),
+    ("only needs", r"\bonly\s+needs\b"),
+    ("only", r"\bonly\b"),
+    ("safe to", r"\bsafe\s+to\b"),
 )
 
 
@@ -204,8 +214,8 @@ def detect_broad_language(text: str) -> list[str]:
     normalized = text.lower()
     return [
         term
-        for term in BROAD_LANGUAGE_TERMS
-        if re.search(rf"\b{re.escape(term)}\b", normalized)
+        for term, pattern in BROAD_LANGUAGE_PATTERNS
+        if re.search(pattern, normalized)
     ]
 
 
@@ -260,6 +270,7 @@ class Judgment(BaseModel):
     evidence_ids: list[str] = Field(default_factory=list)
     reasoning_summary: str = ""
     limits: str = ""
+    safer_wording: str = ""
     contradiction_searched: bool = False
     contradiction_notes: str = ""
 

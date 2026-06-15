@@ -25,7 +25,7 @@ from plumbref.reports import render_report
 from plumbref.sessions import HARNESS
 from plumbref.template_registry import TemplateLoadError, load_templates, summarize_templates
 
-app = typer.Typer(help="Plumbref verifies AI coding-agent claims against source references.")
+app = typer.Typer(help="Plumbref verifies AI codebase claims before you rely on them.")
 
 DEFAULT_CONFIG_TEXT = """ignored_paths = [
   ".git",
@@ -40,9 +40,15 @@ default_template_id = "generic_verification"
 report_policy = "on_demand"
 """
 
-AGENT_INSTRUCTIONS = """When answering repository behavior, migration-risk, downstream-consumer, or
-change-impact questions, use Plumbref through MCP before giving a confident
-answer.
+AGENT_INSTRUCTIONS = """When a user may rely on an AI answer about repository behavior, migration
+risk, downstream consumers, or change impact, use Plumbref through MCP before
+giving a confident answer.
+
+Trigger Plumbref explicitly when the user says things like "audit that",
+"check that with Plumbref", "can I rely on this", "what can I safely say", or
+"run this before I send/merge". Also use it automatically for risky claims that
+use wording such as only, safe to, no downstream, always, never, all, every, or
+guarantee.
 
 Workflow:
 1. Choose the closest Plumbref template. Use generic_verification if no specialized template fits.
@@ -53,13 +59,18 @@ Workflow:
 3. Break the draft answer into atomic claims. Avoid bundling multiple behaviors into one claim.
 4. Search narrowly for each claim using the template's required searches.
 5. Run contradiction searches before marking a claim supported, especially when
-   the wording uses only, always, never, all, none, or guarantees.
+   the wording uses only, safe to, no downstream, always, never, all, none, or
+   guarantees. For broad claims, run the first-order checks needed to answer
+   the claim as written before returning: changed files, non-doc/code changes,
+   direct callers/references, relevant tests, and obvious docs/config references.
 6. Read bounded snippets only around relevant source lines. Tag snippets with
    the closest template evidence_category when possible. Cache hits and reused
    evidence may return compact references; ask for include_excerpt=true only
    when source text needs to be inspected again.
 7. Record conservative judgments. Use supported only when cited evidence
-   supports the claim as written and a contradiction pass was completed.
+   supports the claim as written and a contradiction pass was completed. For
+   too-broad, contradicted, uncertain, not-found, or not-verifiable claims,
+   provide safer_wording when there is wording the user can rely on instead.
 8. Render the Plumbref result. Return the `inline_answer` in chat by default.
    Let report_policy decide whether files should be written, unless the user
    explicitly asks for a report.
@@ -67,11 +78,15 @@ Workflow:
 Answering rules:
 - Prefer cited source evidence over confidence.
 - Say what was not checked.
-- Use the report's answer gate: answer from checked evidence, qualify
-  too-broad claims, and do not claim contradicted or unverifiable parts.
+- Do not leave the obvious check unchecked when it is required to answer the
+  user's actual reliance question.
+- Use the report's answer gate: say what is safe to rely on from checked
+  evidence, qualify too-broad claims, and do not rely on contradicted or
+  unverifiable parts.
 - Keep normal answers inline with `inline_answer`. Mention report paths only
   when a report was written because the user asked, the answer is risky, or
   the answer needs qualifications.
+- Treat supported as supported by checked evidence, not globally true.
 - Do not claim global truth from local snippets.
 - Do not use Plumbref to inspect production data or external systems.
 """
