@@ -38,15 +38,13 @@ Stop the MCP process after confirming it starts.
 Before posting, have one demo that shows:
 
 - the user question
+- the inline answer returned in chat
 - the selected template and mode
-- the initial hypothesis or draft answer
-- searches run
-- files and snippets read
-- claim statuses, including supported, qualified, contradicted, or not found
-- contradiction checks
-- qualified or uncertain areas, if the evidence calls for them
-- safer final wording
-- whether the report could be rerun or compared later
+- two or three checked claims
+- one important limit if the evidence calls for it
+- evidence locations with public-safe paths
+- verification counts
+- the report receipt only as supporting detail
 
 The checked-in dogfood demo is:
 
@@ -109,7 +107,8 @@ supported claims, uncertain areas, and safer wording.
 It does not prove behavior automatically. The current value is higher-confidence
 repo answers: Plumbref pushes the agent to check the important source paths,
 record what it considered, and qualify anything the evidence does not fully
-support. The report is just the visible trail of that verification work.
+support. The inline answer is the product moment; the report is the visible
+trail of that verification work.
 
 The next direction is repeatability: the same verified claims can be rerun later
 to see whether the code still supports them.
