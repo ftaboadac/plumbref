@@ -1189,11 +1189,7 @@ def build_inline_answer(
     lines = [inline_answer_opening(answer_gate)]
     supported_lines = inline_supported_lines(safe_answer["supported"], config)
     if supported_lines:
-<<<<<<< Updated upstream
-        lines.extend(["", "What Plumbref checked:", *supported_lines])
-=======
         lines.extend(["", "Safe to rely on:", *supported_lines])
->>>>>>> Stashed changes
 
     qualified_lines = inline_qualified_lines(state, safe_answer, config)
     if qualified_lines:
@@ -1252,11 +1248,8 @@ def shorten_inline_claim(text: str) -> str:
         ";",
         ", and passes",
         " and passes",
-<<<<<<< Updated upstream
         ", and the checked frontend test",
         " and the checked frontend test",
-=======
->>>>>>> Stashed changes
         ", and tests",
         " and tests",
     ):
@@ -1266,40 +1259,11 @@ def shorten_inline_claim(text: str) -> str:
     return text
 
 
-<<<<<<< Updated upstream
-def inline_limit_lines(
-=======
 def inline_qualified_lines(
->>>>>>> Stashed changes
     state: SessionState,
     safe_answer: dict[str, Any],
     config: PlumbrefConfig,
 ) -> list[str]:
-<<<<<<< Updated upstream
-    limits: list[tuple[int, str]] = []
-    for item in [*safe_answer["qualified"], *safe_answer["avoid"]]:
-        if item["limits"]:
-            limits.append((-100, qualified_inline_limit_text(item)))
-        else:
-            limits.append((-100, f"{item['status']}: {item['text']}"))
-
-    if not limits:
-        for claim in state.claims.values():
-            judgment = state.judgments.get(claim.id)
-            if not judgment or not judgment.limits.strip():
-                continue
-            if claim.status != ClaimStatus.SUPPORTED:
-                continue
-            if not is_material_supported_limit(judgment.limits):
-                continue
-            limits.append((inline_limit_priority(claim, judgment.limits), judgment.limits))
-
-    ordered_limits = [limit for _priority, limit in sorted(limits, key=lambda item: item[0])]
-    deduped = dedupe_preserve_order(
-        [redact_text(limit, config.privacy_patterns) for limit in ordered_limits if limit.strip()]
-    )
-    lines = [f"- {ensure_sentence(limit)}" for limit in deduped[:4]]
-=======
     items: list[tuple[int, str]] = []
     for claim in state.claims.values():
         judgment = state.judgments.get(claim.id)
@@ -1312,28 +1276,16 @@ def inline_qualified_lines(
         items.append((supported_limit_priority(claim, judgment.limits), judgment.limits))
 
     for item in safe_answer["qualified"]:
-        items.append((-100, status_claim_text(item)))
+        items.append((-100, qualified_inline_text(item)))
 
     ordered = [text for _priority, text in sorted(items, key=lambda item: item[0])]
     deduped = dedupe_preserve_order([redact_text(text, config.privacy_patterns) for text in ordered if text.strip()])
     lines = [f"- {ensure_sentence(text)}" for text in deduped[:4]]
->>>>>>> Stashed changes
     if len(deduped) > 4:
         lines.append(f"- {len(deduped) - 4} more qualification(s) in the report.")
     return lines
 
 
-<<<<<<< Updated upstream
-def inline_limit_priority(claim: Any, limit: str) -> int:
-    normalized = normalize_check_text(limit)
-    priority = 50
-    if claim.status != ClaimStatus.SUPPORTED:
-        priority -= 100
-    if claim.risk == RiskLevel.HIGH:
-        priority -= 20
-    if "idempotency" in normalized or "server side" in normalized or "server side duplicate" in normalized:
-        priority -= 15
-=======
 def inline_avoid_lines(safe_answer: dict[str, Any], config: PlumbrefConfig) -> list[str]:
     texts = [status_claim_text(item) for item in safe_answer["avoid"]]
     deduped = dedupe_preserve_order([redact_text(text, config.privacy_patterns) for text in texts if text.strip()])
@@ -1365,7 +1317,8 @@ def supported_limit_priority(claim: Any, limit: str) -> int:
     priority = 50
     if claim.risk == RiskLevel.HIGH:
         priority -= 20
->>>>>>> Stashed changes
+    if "idempotency" in normalized or "server side" in normalized or "server side duplicate" in normalized:
+        priority -= 15
     if "not found" in normalized or "did not find" in normalized or "no focused" in normalized:
         priority -= 12
     if "no browser" in normalized or "not execute" in normalized:
@@ -1373,8 +1326,7 @@ def supported_limit_priority(claim: Any, limit: str) -> int:
     return priority
 
 
-<<<<<<< Updated upstream
-def qualified_inline_limit_text(item: dict[str, Any]) -> str:
+def qualified_inline_text(item: dict[str, Any]) -> str:
     text = item["text"].strip()
     limits = item["limits"].strip()
     if not text:
@@ -1384,8 +1336,6 @@ def qualified_inline_limit_text(item: dict[str, Any]) -> str:
     return f"{item['status']}: {text} Limits: {limits}"
 
 
-=======
->>>>>>> Stashed changes
 def is_material_supported_limit(limit: str) -> bool:
     normalized = normalize_check_text(limit)
     if not normalized:
@@ -1604,20 +1554,6 @@ def ensure_sentence(text: str) -> str:
     if stripped[-1] in ".!?":
         return stripped
     return f"{stripped}."
-
-
-def truncate_words(text: str, max_chars: int) -> str:
-    stripped = text.strip()
-    if len(stripped) <= max_chars:
-        return stripped
-    words = stripped.split()
-    shortened: list[str] = []
-    for word in words:
-        candidate = " ".join([*shortened, word])
-        if len(candidate) > max_chars - 1:
-            break
-        shortened.append(word)
-    return (" ".join(shortened) or stripped[: max_chars - 1]).rstrip(" ,;:") + "..."
 
 
 def explanation_safe_answer(state: SessionState, config: PlumbrefConfig) -> list[str]:

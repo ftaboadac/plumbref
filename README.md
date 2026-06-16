@@ -224,17 +224,10 @@ evidence, search traces, limits, and cache metrics.
 `.cache/plumbref/reports/index.json` tracks reports that were actually written.
 
 MCP render responses include `inline_answer`: the chat-shaped answer agents
-<<<<<<< Updated upstream
-should return by default. It summarizes what Plumbref checked, the important
-limits, evidence locations, and verification counts. Markdown and JSON reports
-are the inspectable receipt behind that answer, not the primary user-facing
-surface.
-=======
 should return by default. It summarizes what is safe to rely on, what needs
 qualification, what not to rely on, safer wording, evidence locations,
 unchecked areas, and verification counts. Markdown and JSON reports are the
 inspectable receipt behind that answer, not the primary user-facing surface.
->>>>>>> Stashed changes
 
 Agents can compare two JSON reports for the same question through the MCP
 `plumbref_diff_reports` tool. The tool returns structured claim changes plus a

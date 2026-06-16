@@ -64,15 +64,10 @@ def test_report_renders_markdown_and_json(tmp_path: Path) -> None:
     report = render_report(state=state, config=config)
 
     assert report.json_report["verdict"] == "Supported"
-<<<<<<< Updated upstream
-    assert report.inline_answer.startswith("Based on checked evidence, this answer is supported.")
-    assert "What Plumbref checked:" in report.inline_answer
-=======
     assert report.inline_answer.startswith(
         "Based on checked evidence, these codebase claims are safe to rely on within the checked scope."
     )
     assert "Safe to rely on:" in report.inline_answer
->>>>>>> Stashed changes
     assert "The scheduled job skips work when provider_id is missing." in report.inline_answer
     assert "Evidence:" in report.inline_answer
     assert "`app.py:9-11`" in report.inline_answer
@@ -539,27 +534,20 @@ def test_report_outcome_qualifies_too_broad_claims(tmp_path: Path) -> None:
     report = render_report(state=state, config=config, write_files=False)
 
     quality = report.json_report["quality"]
-<<<<<<< Updated upstream
-    assert report.inline_answer.startswith("Based on checked evidence, answer with these qualifications.")
-    assert "Important limits:" in report.inline_answer
+    assert report.inline_answer.startswith(
+        "Based on checked evidence, rely on this only with the qualifications below."
+    )
+    assert "Say with qualification:" in report.inline_answer
     assert (
         "too_broad: Every job skips missing providers. Limits: "
         "Say run_scheduled_job skips missing provider_id."
         in report.inline_answer
     )
-    assert report.inline_answer.count("Say run_scheduled_job skips missing provider_id.") == 1
-=======
-    assert report.inline_answer.startswith(
-        "Based on checked evidence, rely on this only with the qualifications below."
-    )
-    assert "Say with qualification:" in report.inline_answer
-    assert "too_broad: Every job skips missing providers." in report.inline_answer
     assert "Safer wording:" in report.inline_answer
     assert "run_scheduled_job skips missing provider_id in the checked implementation." in report.inline_answer
     assert report.json_report["claims"][0]["judgment"]["safer_wording"] == (
         "run_scheduled_job skips missing provider_id in the checked implementation."
     )
->>>>>>> Stashed changes
     assert (
         "Verification: 1 claim(s) (too_broad=1); 1 evidence snippet(s); 0/1 contradiction pass(es)."
         in report.inline_answer
@@ -661,10 +649,7 @@ def test_report_quality_requires_template_values_for_placeholder_only_searches()
         item == "Provide template value(s) for flow_name before checking required search: {flow_name}."
         for item in report.json_report["quality"]["next_checks"]
     )
-<<<<<<< Updated upstream
-=======
     assert "Unchecked:" in report.inline_answer
->>>>>>> Stashed changes
     assert "Next check:" not in report.inline_answer
 
 
