@@ -22,7 +22,7 @@ This only changes docs and positioning copy.
 Based on checked evidence, rely on this only with the qualifications below.
 
 Safe to rely on:
-- The checked README changes reposition Plumbref around verifying AI codebase claims before reliance.
+- The checked README changes position Plumbref around checking risky repo claims before reliance.
 - The checked report renderer changes the agent-facing inline answer sections to Safe to rely on, Say with qualification, Do not rely on, Safer wording, Evidence, and Unchecked.
 
 Do not rely on:
@@ -52,23 +52,23 @@ pass for:
 
 ## Verification Ledger
 
-### supported: README now frames Plumbref as verifying AI codebase claims before reliance.
+### supported: README now frames Plumbref as checking risky repo claims before reliance.
 
 - Type: definition
 - Risk: medium
-- Reasoning: The README lead states the new reliance-check positioning and says Plumbref returns what is safe to rely on, what needs qualification, what not to rely on, and source lines.
+- Reasoning: The README lead states the reliance-check positioning and says Plumbref returns what checked source lines support, what needs qualification, what not to rely on, and source lines.
 - Contradiction pass: yes
 - Evidence:
   - `README.md:10-16`
 
 ```text
-Plumbref verifies AI codebase claims before you rely on them.
+Plumbref helps coding agents check risky repo claims before you rely on them.
 
-It gives coding agents an evidence gate: before you repeat or act on an answer,
+It gives coding agents a report gate: before you repeat or act on an answer,
 the agent breaks it into claims, checks local repository evidence, and returns
-what is safe to rely on, what needs qualification, what not to rely on, and the
-source lines behind that call. When the answer is risky, qualified, or
-explicitly requested, Plumbref also writes an inspectable report.
+what is supported by checked source lines, what needs qualification, what not
+to rely on, and the source lines behind that call. When the answer is risky,
+qualified, or explicitly requested, Plumbref also writes an inspectable report.
 ```
 
 ### supported: The inline answer renderer now emits reliance-oriented sections.

@@ -164,7 +164,8 @@ def is_report_index_entry(entry: object, session_id: str) -> bool:
 
 def build_json_report(state: SessionState, config: PlumbrefConfig) -> dict[str, Any]:
     status_counts = Counter(claim.status for claim in state.claims.values())
-    verdict = overall_verdict(status_counts)
+    quality = build_quality_summary(state)
+    verdict = gate_aware_verdict(overall_verdict(status_counts), quality["answer_gate"])
     claim_stable_ids = stable_claim_ids(state)
     payload = {
         "session_id": state.session.id,
@@ -180,7 +181,7 @@ def build_json_report(state: SessionState, config: PlumbrefConfig) -> dict[str, 
         if state.session.change_context
         else None,
         "budget_mode": state.session.budget_mode,
-        "quality": build_quality_summary(state),
+        "quality": quality,
         "measurement": build_measurement_summary(state),
         "claims": [
             {
@@ -503,7 +504,12 @@ def build_quality_summary(state: SessionState) -> dict[str, Any]:
             )
 
         for pattern in template.required_searches:
-            item = search_pattern_completion(pattern, state.traces, state.session.template_values)
+            item = search_pattern_completion(
+                pattern,
+                state.traces,
+                state.session.template_values,
+                require_matches=True,
+            )
             search_completion.append(item)
             add_quality_check(
                 checks,
@@ -516,7 +522,12 @@ def build_quality_summary(state: SessionState) -> dict[str, Any]:
             )
 
         for pattern in template.contradiction_searches:
-            item = search_pattern_completion(pattern, state.traces, state.session.template_values)
+            item = search_pattern_completion(
+                pattern,
+                state.traces,
+                state.session.template_values,
+                require_matches=False,
+            )
             contradiction_search_completion.append(item)
             add_quality_check(
                 checks,
@@ -531,7 +542,7 @@ def build_quality_summary(state: SessionState) -> dict[str, Any]:
         recorded_categories = {
             normalize_check_text(snippet.evidence_category)
             for snippet in state.evidence.values()
-            if snippet.evidence_category
+            if snippet.evidence_category and evidence_category_matches(snippet.evidence_category, snippet.file)
         }
         for category in template.evidence_categories:
             passed = normalize_check_text(category) in recorded_categories
@@ -703,22 +714,36 @@ def build_gate_coverage(
 ) -> dict[str, Any]:
     """Return strict-gate blockers that prevent supported claims from being safe."""
     failed_claim_types = [item for item in claim_type_completion if not item["passed"]]
-    failed_required_searches = [
-        item for item in search_completion if not item["passed"] and not item.get("skipped")
-    ]
-    failed_contradiction_searches = [
-        item for item in contradiction_search_completion if not item["passed"] and not item.get("skipped")
-    ]
-    failed_evidence_categories = [
-        item for item in evidence_category_completion if not item["passed"]
-    ]
     budget_exhausted_traces = [trace for trace in state.traces if trace.budget_exhausted]
     missing_by_claim: dict[str, list[str]] = {}
     missing: list[str] = []
+    missing_required_search_claims: list[str] = []
+    missing_contradiction_search_claims: list[str] = []
+    missing_evidence_category_claims: list[str] = []
 
     for claim in supported_claims:
         claim_missing: list[str] = []
         judgment = state.judgments.get(claim.id)
+        claim_required_searches = per_claim_search_completion(search_completion, state.traces, claim.id)
+        claim_contradiction_searches = per_claim_search_completion(
+            contradiction_search_completion,
+            state.traces,
+            claim.id,
+        )
+        claim_evidence_categories = per_claim_evidence_category_completion(
+            evidence_category_completion,
+            state=state,
+            claim_id=claim.id,
+        )
+        failed_claim_required_searches = [
+            item for item in claim_required_searches if not item["passed"] and not item.get("skipped")
+        ]
+        failed_claim_contradiction_searches = [
+            item for item in claim_contradiction_searches if not item["passed"] and not item.get("skipped")
+        ]
+        failed_claim_evidence_categories = [
+            item for item in claim_evidence_categories if not item["passed"]
+        ]
         if not judgment:
             claim_missing.append("Record a judgment before treating the claim as supported.")
         else:
@@ -734,10 +759,12 @@ def build_gate_coverage(
         claim_missing.extend(
             f"Record required claim type: {item['claim_type']}." for item in failed_claim_types
         )
-        claim_missing.extend(search_next_check("required search", item) for item in failed_required_searches)
-        claim_missing.extend(search_next_check("contradiction search", item) for item in failed_contradiction_searches)
+        claim_missing.extend(search_next_check("required search", item) for item in failed_claim_required_searches)
         claim_missing.extend(
-            f"Read evidence for required category: {item['category']}." for item in failed_evidence_categories
+            search_next_check("contradiction search", item) for item in failed_claim_contradiction_searches
+        )
+        claim_missing.extend(
+            f"Read evidence for required category: {item['category']}." for item in failed_claim_evidence_categories
         )
 
         if any(trace.claim_id == claim.id for trace in budget_exhausted_traces):
@@ -746,6 +773,12 @@ def build_gate_coverage(
         if claim_missing:
             missing_by_claim[claim.id] = dedupe_preserve_order(claim_missing)
             missing.extend(f"{claim.id}: {item}" for item in missing_by_claim[claim.id])
+        if failed_claim_required_searches:
+            missing_required_search_claims.append(claim.id)
+        if failed_claim_contradiction_searches:
+            missing_contradiction_search_claims.append(claim.id)
+        if failed_claim_evidence_categories:
+            missing_evidence_category_claims.append(claim.id)
 
     return {
         "missing": dedupe_preserve_order(missing),
@@ -753,19 +786,68 @@ def build_gate_coverage(
         "supported_claims_missing_required_claim_types": [
             claim.id for claim in supported_claims if failed_claim_types
         ],
-        "supported_claims_missing_required_searches": [
-            claim.id for claim in supported_claims if failed_required_searches
-        ],
-        "supported_claims_missing_contradiction_searches": [
-            claim.id for claim in supported_claims if failed_contradiction_searches
-        ],
-        "supported_claims_missing_evidence_categories": [
-            claim.id for claim in supported_claims if failed_evidence_categories
-        ],
+        "supported_claims_missing_required_searches": dedupe_preserve_order(missing_required_search_claims),
+        "supported_claims_missing_contradiction_searches": dedupe_preserve_order(missing_contradiction_search_claims),
+        "supported_claims_missing_evidence_categories": dedupe_preserve_order(missing_evidence_category_claims),
         "budget_exhausted_claims": dedupe_preserve_order(
             [trace.claim_id for trace in budget_exhausted_traces]
         ),
     }
+
+
+def per_claim_search_completion(
+    search_completion: list[dict[str, Any]],
+    traces: list[Any],
+    claim_id: str,
+) -> list[dict[str, Any]]:
+    claim_traces = [trace for trace in traces if trace.claim_id == claim_id]
+    claim_completion: list[dict[str, Any]] = []
+    for item in search_completion:
+        claim_item = dict(item)
+        if item.get("skipped") or item.get("missing_placeholders"):
+            claim_completion.append(claim_item)
+            continue
+        matched_queries: list[str] = []
+        literal_tokens = item.get("literal_tokens", [])
+        for trace in claim_traces:
+            query_tokens = normalize_tokens(trace.query)
+            if literal_tokens and all(token in query_tokens for token in literal_tokens):
+                matched_queries.append(trace.query)
+        claim_item["matched_queries"] = dedupe_preserve_order(matched_queries)
+        if item.get("require_matches", True):
+            matched_files = [
+                file
+                for trace in claim_traces
+                if trace.query in matched_queries
+                for file in trace.matched_files
+            ]
+            claim_item["passed"] = bool(matched_queries) and bool(matched_files)
+        else:
+            claim_item["passed"] = bool(matched_queries)
+        claim_completion.append(claim_item)
+    return claim_completion
+
+
+def per_claim_evidence_category_completion(
+    evidence_category_completion: list[dict[str, Any]],
+    *,
+    state: SessionState,
+    claim_id: str,
+) -> list[dict[str, Any]]:
+    claim_categories = {
+        normalize_check_text(snippet.evidence_category)
+        for snippet in state.evidence.values()
+        if snippet.evidence_category
+        and (snippet.claim_id == claim_id or claim_id in snippet.claim_ids)
+        and evidence_category_matches(snippet.evidence_category, snippet.file)
+    }
+    return [
+        {
+            "category": item["category"],
+            "passed": normalize_check_text(item["category"]) in claim_categories,
+        }
+        for item in evidence_category_completion
+    ]
 
 
 def add_quality_check(
@@ -794,6 +876,8 @@ def search_pattern_completion(
     pattern: str,
     traces: list[Any],
     template_values: dict[str, str] | None = None,
+    *,
+    require_matches: bool = True,
 ) -> dict[str, Any]:
     resolved = resolve_pattern(pattern, template_values or {})
     if resolved["not_applicable_placeholders"]:
@@ -803,6 +887,7 @@ def search_pattern_completion(
             "missing_placeholders": [],
             "not_applicable_placeholders": resolved["not_applicable_placeholders"],
             "literal_tokens": [],
+            "require_matches": require_matches,
             "passed": True,
             "skipped": True,
             "matched_queries": [],
@@ -814,26 +899,61 @@ def search_pattern_completion(
             "missing_placeholders": resolved["missing_placeholders"],
             "not_applicable_placeholders": [],
             "literal_tokens": [],
+            "require_matches": require_matches,
             "passed": False,
             "skipped": False,
             "matched_queries": [],
         }
     literal_tokens = normalize_tokens(resolved["resolved_pattern"])
     matched_queries: list[str] = []
+    matched_files: list[str] = []
     for trace in traces:
         query_tokens = normalize_tokens(trace.query)
         if literal_tokens and all(token in query_tokens for token in literal_tokens):
             matched_queries.append(trace.query)
+            matched_files.extend(trace.matched_files)
+    passed = bool(matched_queries)
+    if require_matches:
+        passed = passed and bool(matched_files)
     return {
         "pattern": pattern,
         "resolved_pattern": resolved["resolved_pattern"],
         "missing_placeholders": [],
         "not_applicable_placeholders": [],
         "literal_tokens": literal_tokens,
-        "passed": bool(matched_queries),
+        "require_matches": require_matches,
+        "passed": passed,
         "skipped": False,
         "matched_queries": dedupe_preserve_order(matched_queries),
+        "matched_files": dedupe_preserve_order(matched_files),
     }
+
+
+def evidence_category_matches(category: str, file: str) -> bool:
+    """Apply simple path checks for common categories an agent could fake."""
+    normalized_category = normalize_check_text(category)
+    normalized_file = normalize_check_text(file)
+    path_parts = normalize_tokens(file)
+    if normalized_category == "tests":
+        return (
+            "test" in path_parts
+            or "tests" in path_parts
+            or "spec" in path_parts
+            or "specs" in path_parts
+            or normalized_file.endswith("test py")
+            or normalized_file.endswith("spec py")
+        )
+    if normalized_category == "docs":
+        return (
+            "doc" in path_parts
+            or "docs" in path_parts
+            or "readme" in path_parts
+            or normalized_file.endswith("md")
+            or normalized_file.endswith("mdx")
+            or normalized_file.endswith("rst")
+            or normalized_file.endswith("txt")
+        )
+    return True
 
 
 def resolve_pattern(pattern: str, template_values: dict[str, str]) -> dict[str, Any]:
@@ -1254,6 +1374,18 @@ def overall_verdict(status_counts: Counter[ClaimStatus]) -> str:
     if status_counts[ClaimStatus.SUPPORTED] and len(status_counts) == 1:
         return "Supported"
     return "Partially supported"
+
+
+def gate_aware_verdict(verdict: str, answer_gate: dict[str, Any]) -> str:
+    """Keep machine-readable verdict aligned with the reliance gate."""
+    gate_status = answer_gate.get("status")
+    if gate_status == "not_ready":
+        return "No claims recorded" if verdict == "No claims recorded" else "Not ready"
+    if gate_status == "do_not_claim":
+        return "Contradicted claims found"
+    if gate_status in {"answer_with_qualifications", "answer_with_limits"} and verdict == "Supported":
+        return "Partially supported"
+    return verdict
 
 
 def support_summary(state: SessionState) -> str:

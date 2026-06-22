@@ -7,24 +7,24 @@ Use this before dogfooding Plumbref in a normal workflow or posting publicly.
 Run from a clean checkout or fresh virtual environment:
 
 ```shell
-python -m venv .venv
+python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install -e ".[dev]"
+python3 -m pip install -e ".[dev]"
 rg --version
 plumbref init --repo-root .
 plumbref doctor --repo-root .
 plumbref templates --repo-root .
 plumbref templates --repo-root . --template-id change_impact
-python -m pytest
+python3 -m pytest
 ruff check .
 ```
 
 For an installed package smoke test:
 
 ```shell
-python -m venv /tmp/plumbref-smoke
+python3 -m venv /tmp/plumbref-smoke
 . /tmp/plumbref-smoke/bin/activate
-python -m pip install dist/plumbref-0.1.1-py3-none-any.whl
+python3 -m pip install dist/plumbref-0.1.1-py3-none-any.whl
 plumbref init --repo-root /path/to/repo
 plumbref doctor --repo-root /path/to/repo
 plumbref templates --repo-root /path/to/repo

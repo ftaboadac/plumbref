@@ -38,7 +38,7 @@ def search_repo(
         ensure_can_search(claim, state.budget)
         ensure_reference_depth(claim, state.budget, reference_depth)
     except BudgetExceededError:
-        return SearchTrace(
+        trace = SearchTrace(
             claim_id=claim_id,
             query=query,
             command=command,
@@ -46,6 +46,8 @@ def search_repo(
             budget_exhausted=True,
             cache_key=cache_key,
         )
+        state.traces.append(trace)
+        return trace
 
     if cached_payload := read_json(cache_path):
         trace = SearchTrace.model_validate(

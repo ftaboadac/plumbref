@@ -17,9 +17,9 @@ The agent said SSO only depends on Okta. Check that before I tell support.
 From a checkout:
 
 ```shell
-python -m venv .venv
+python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install -e ".[dev]"
+python3 -m pip install -e ".[dev]"
 plumbref init --repo-root .
 plumbref doctor --repo-root . --check-mcp-startup
 ```

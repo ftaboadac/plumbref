@@ -140,6 +140,7 @@ def test_search_repo_enforces_reference_depth_budget() -> None:
     )
 
     assert trace.budget_exhausted
+    assert state.traces == [trace]
 
 
 def test_read_evidence_returns_redacted_line_snippet() -> None:

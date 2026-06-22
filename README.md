@@ -7,13 +7,13 @@
 
 ![A plumb line suspended over a dark surface](docs/assets/plumbref-readme-hero.png)
 
-Plumbref verifies AI codebase claims before you rely on them.
+Plumbref helps coding agents check risky repo claims before you rely on them.
 
-It gives coding agents an evidence gate: before you repeat or act on an answer,
+It gives coding agents a report gate: before you repeat or act on an answer,
 the agent breaks it into claims, checks local repository evidence, and returns
-what is safe to rely on, what needs qualification, what not to rely on, and the
-source lines behind that call. When the answer is risky, qualified, or
-explicitly requested, Plumbref also writes an inspectable report.
+what is supported by checked source lines, what needs qualification, what not
+to rely on, and the source lines behind that call. When the answer is risky,
+qualified, or explicitly requested, Plumbref also writes an inspectable report.
 
 Ask natural reliance-check questions about your repository:
 
@@ -36,6 +36,18 @@ Plumbref is local-first. It does not call a model API, require an API key,
 upload your repository, use a database, depend on a vector store, or run a
 hosted service.
 
+## Trust Boundary
+
+Plumbref does not independently determine truth. The coding agent still
+extracts claims, chooses searches, reads evidence, and records judgments.
+Plumbref structures that workflow, stores the evidence trail, applies template
+and strict-gate checks, and downgrades answers when required recorded checks
+are missing.
+
+Treat `supported` as "supported by the cited local evidence and recorded
+checks," not as a guarantee about every deployment, runtime state, or external
+system.
+
 ## Why
 
 Prompts and skills can ask an agent to be careful, but they often produce more
@@ -52,7 +64,7 @@ artifacts.
 1. Install Plumbref once.
 2. Add it to your MCP-capable coding agent for a repository.
 3. Ask repo questions naturally in chat.
-4. The agent uses Plumbref tools to verify claims against source evidence.
+4. The agent uses Plumbref tools to check claims against source evidence.
 5. You get a concise answer with safe-to-rely-on claims, qualified claims,
    do-not-rely-on claims, evidence locations, unchecked areas, and safer wording.
 
@@ -119,9 +131,9 @@ pipx install git+https://github.com/ftaboadac/plumbref.git
 For local development:
 
 ```shell
-python -m venv .venv
+python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install -e ".[dev]"
+python3 -m pip install -e ".[dev]"
 ```
 
 Plumbref uses `rg`/ripgrep for repository search:
@@ -144,7 +156,7 @@ plumbref doctor
 instructions. `plumbref doctor` checks local readiness: repo root, ripgrep,
 config loading, templates, report-path writability, and optional MCP startup.
 
-Any MCP-capable client can launch Plumbref as a stdio server:
+MCP clients that support stdio servers can launch Plumbref with:
 
 ```shell
 plumbref mcp --repo-root /path/to/repo
@@ -165,6 +177,12 @@ Example MCP config:
 
 For agent-specific usage guidance and conversational examples, see
 [Agent Usage Guide](docs/agent-usage.md).
+
+For the current first-run proof path, see
+[examples/first-run](examples/first-run/). It shows the SSO claim prompt,
+expected tool flow, inline answer shape, and checked-claim artifact. That
+fixture is a stdio transcript example, not yet a captured live client transcript
+from Codex, Claude Code, or Cursor.
 
 ## Templates
 
@@ -248,14 +266,15 @@ are cached by file path, line range, file hash, and privacy settings. Cache
 hits and in-session evidence reuse can return compact evidence references
 without repasting source text.
 
-Checked-in example reports:
+Current demo artifacts:
 
-- [Reliance-check overclaim demo](examples/reports/reliance-check-overclaim-demo.md)
-- [Dogfood template-loading demo](examples/reports/plumbref-template-loading-demo.md)
-- [Real MCP template-loading report](examples/reports/real-template-loading-mcp.md)
-- [Real MCP template_id migration report](examples/reports/real-template-id-migration-mcp.md)
-- [Real MCP onboarding change-impact report](examples/reports/real-onboarding-change-impact-mcp.md)
+- [First-run SSO fixture](examples/first-run/)
 - [SSO business-rule drift diff](examples/reports/sso-eligibility-drift-diff.md)
+
+Historical dogfood reports live in [examples/reports](examples/reports/).
+They are useful for seeing report shape and earlier product exploration, but
+some line references and quoted README wording may be stale. Do not treat them
+as current proof until they are regenerated.
 
 ## Early Dogfood Results
 
@@ -306,7 +325,7 @@ they are absolute paths.
 Run tests:
 
 ```shell
-python -m pytest
+python3 -m pytest
 ```
 
 Run lint:

@@ -2,11 +2,15 @@
 
 Plumbref is intended to run behind a coding agent through MCP. The user should
 ask normal repository questions in chat; the agent should use Plumbref tools to
-verify AI codebase claims before the user relies on them. The primary output is
-a bounded, source-backed inline answer that says what is safe to rely on, what
-needs qualification, what not to rely on, and what source lines were checked. A
-Markdown report is the inspectable receipt when the answer is risky, qualified,
-or explicitly requested.
+check risky codebase claims before the user relies on them. The primary output
+is a bounded, source-backed inline answer that says what checked evidence
+supports, what needs qualification, what not to rely on, and what source lines
+were checked. A Markdown report is the inspectable receipt when the answer is
+risky, qualified, or explicitly requested.
+
+Plumbref is not an independent truth oracle. The coding agent still extracts
+claims, chooses searches, and records judgments; Plumbref stores the trail and
+downgrades answers when the recorded checks are incomplete.
 
 This guide is written for Codex, Claude Code, Cursor, and other MCP-capable
 coding agents. The examples are intentionally generic and avoid company- or
@@ -23,9 +27,9 @@ pipx install plumbref
 For local development from a checkout:
 
 ```shell
-python -m venv .venv
+python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install -e ".[dev]"
+python3 -m pip install -e ".[dev]"
 ```
 
 Plumbref uses ripgrep for local repository search:
@@ -85,8 +89,52 @@ With an explicit config file:
 }
 ```
 
-The config shape is the same for most MCP clients. Put the JSON in the
-client-specific MCP configuration location and restart or reload the client.
+The server command is the same for most MCP clients. The config file format and
+location are client-specific.
+
+### Codex
+
+Codex reads MCP servers from `~/.codex/config.toml`. Add one server per repo:
+
+```toml
+[mcp_servers.plumbref]
+command = "plumbref"
+args = ["mcp", "--repo-root", "/path/to/repo"]
+startup_timeout_sec = 120
+```
+
+For a local development checkout where `plumbref` is not on `PATH`, point to
+the virtualenv executable:
+
+```toml
+[mcp_servers.plumbref]
+command = "/path/to/plumbref/.venv/bin/python"
+args = ["-m", "plumbref", "mcp", "--repo-root", "/path/to/repo"]
+startup_timeout_sec = 120
+```
+
+Restart Codex or reload the workspace after editing the config. Then ask:
+
+```text
+The agent said SSO only depends on Okta. Check that before I tell support.
+Use Plumbref and return the inline answer.
+```
+
+The expected first-run shape is in
+[`examples/first-run/README.md`](../examples/first-run/README.md). That example
+includes a stdio transcript fixture, but it is not yet a captured live
+Codex/Claude/Cursor client transcript.
+
+### Troubleshooting
+
+| Symptom | Check |
+| --- | --- |
+| Client cannot see Plumbref tools | Confirm the config file location and restart/reload the client. |
+| MCP server exits on startup | Run `plumbref doctor --repo-root /path/to/repo --check-mcp-startup`. |
+| `plumbref` command is not found | Use the virtualenv form above or install with `pipx install plumbref`. |
+| Agent gives an answer without Plumbref | Add the agent instructions below and explicitly say "Use Plumbref". |
+| Report path is missing | Check `report_policy`; low-risk supported answers may stay inline only. |
+| Answer says checks are missing | Inspect `Unchecked` and rerun with the missing search/category. |
 
 ## Agent Instructions
 

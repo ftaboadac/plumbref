@@ -695,7 +695,7 @@ def test_non_broad_supported_claim_missing_template_checks_is_not_safe(tmp_path:
                 'modes = ["explanation"]',
                 'required_claim_types = ["behavior", "api"]',
                 'required_searches = ["provider_id"]',
-                'contradiction_searches = ["provider_id error"]',
+                'contradiction_searches = ["missing provider error"]',
                 'evidence_categories = ["direct implementation", "tests"]',
             ]
         ),
@@ -747,12 +747,233 @@ def test_non_broad_supported_claim_missing_template_checks_is_not_safe(tmp_path:
 
     quality = report.json_report["quality"]
     missing = quality["gate_coverage"]["missing_by_claim"][claim.id]
+    assert report.json_report["verdict"] == "Partially supported"
     assert quality["answer_gate"]["status"] == "answer_with_qualifications"
     assert "Record required claim type: api." in missing
-    assert "Run or record contradiction search: provider_id error." in missing
+    assert "Run or record contradiction search: missing provider error." in missing
     assert "Read evidence for required category: tests." in missing
     assert quality["gate_coverage"]["supported_claims_missing_contradiction_searches"] == [claim.id]
     assert quality["gate_coverage"]["supported_claims_missing_evidence_categories"] == [claim.id]
+
+
+def test_supported_claim_template_checks_are_per_claim_not_session_wide(tmp_path: Path) -> None:
+    """A different claim's search or category cannot satisfy a supported claim's gate."""
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "app.py").write_text(
+        "\n".join(
+            [
+                "def run_scheduled_job(provider_id):",
+                "    if provider_id is None:",
+                "        return 'skipped'",
+                "    return 'ran'",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (repo_root / "test_app.py").write_text(
+        "def test_scheduled_job_skips_missing_provider():\n    assert True\n",
+        encoding="utf-8",
+    )
+    template_dir = repo_root / ".plumbref" / "templates"
+    template_dir.mkdir(parents=True)
+    (template_dir / "per_claim_test.toml").write_text(
+        "\n".join(
+            [
+                'id = "per_claim_test"',
+                'version = "1.0"',
+                'name = "Per claim test"',
+                'description = "Template used by per-claim gate tests."',
+                'modes = ["explanation"]',
+                'required_searches = ["provider_id"]',
+                'contradiction_searches = ["missing provider error"]',
+                'evidence_categories = ["direct implementation", "tests"]',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    harness = PlumbrefHarness()
+    state = harness.start_session(
+        repo_root=repo_root,
+        question="What happens if provider_id is missing?",
+        answer="The scheduled job skips work when provider_id is missing. Tests cover it.",
+        template_id="per_claim_test",
+    )
+    behavior_claim = ClaimWorkItem(
+        text="The scheduled job skips work when provider_id is missing.",
+        claim_type=ClaimType.BEHAVIOR,
+    )
+    test_claim = ClaimWorkItem(
+        text="Tests cover the missing-provider path.",
+        claim_type=ClaimType.UNKNOWN,
+    )
+    harness.store_claims([behavior_claim, test_claim], session_id=state.session.id)
+    state.traces.extend(
+        [
+            SearchTrace(
+                claim_id=behavior_claim.id,
+                query="provider_id",
+                command=["rg", "provider_id"],
+                matched_files=["app.py"],
+                elapsed_ms=1,
+            ),
+            SearchTrace(
+                claim_id=test_claim.id,
+                query="missing provider error",
+                command=["rg", "missing provider error"],
+                matched_files=["test_app.py"],
+                elapsed_ms=1,
+            ),
+        ]
+    )
+    config = load_config(repo_root)
+    config.cache_path = tmp_path / "cache"
+    behavior_snippet = read_evidence(
+        state=state,
+        config=config,
+        claim_id=behavior_claim.id,
+        file="app.py",
+        start_line=1,
+        end_line=4,
+        summary="run_scheduled_job returns skipped when provider_id is missing.",
+        evidence_category="direct implementation",
+    )
+    test_snippet = read_evidence(
+        state=state,
+        config=config,
+        claim_id=test_claim.id,
+        file="test_app.py",
+        start_line=1,
+        end_line=2,
+        summary="A test file exists for scheduled job behavior.",
+        evidence_category="tests",
+    )
+    record_judgment(
+        state=state,
+        claim_id=behavior_claim.id,
+        status=ClaimStatus.SUPPORTED,
+        evidence_ids=[behavior_snippet.id],
+        reasoning_summary="The function returns skipped for missing provider_id.",
+        contradiction_searched=True,
+    )
+    record_judgment(
+        state=state,
+        claim_id=test_claim.id,
+        status=ClaimStatus.SUPPORTED,
+        evidence_ids=[test_snippet.id],
+        reasoning_summary="The test file covers this behavior.",
+        contradiction_searched=True,
+    )
+
+    report = render_report(state=state, config=config, write_files=False)
+
+    gate = report.json_report["quality"]["gate_coverage"]
+    behavior_missing = gate["missing_by_claim"][behavior_claim.id]
+    test_missing = gate["missing_by_claim"][test_claim.id]
+    assert "Run or record contradiction search: missing provider error." in behavior_missing
+    assert "Read evidence for required category: tests." in behavior_missing
+    assert "Run or record required search: provider_id." in test_missing
+    assert "Read evidence for required category: direct implementation." in test_missing
+    assert gate["supported_claims_missing_required_searches"] == [test_claim.id]
+    assert gate["supported_claims_missing_contradiction_searches"] == [behavior_claim.id]
+    assert gate["supported_claims_missing_evidence_categories"] == [
+        behavior_claim.id,
+        test_claim.id,
+    ]
+
+
+def test_bad_agent_metadata_does_not_satisfy_strict_gate(tmp_path: Path) -> None:
+    """Zero-result required searches and fake categories cannot make a claim safe."""
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "app.py").write_text(
+        "\n".join(
+            [
+                "def run_scheduled_job(provider_id):",
+                "    if provider_id is None:",
+                "        return 'skipped'",
+                "    return 'ran'",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    template_dir = repo_root / ".plumbref" / "templates"
+    template_dir.mkdir(parents=True)
+    (template_dir / "bad_agent_test.toml").write_text(
+        "\n".join(
+            [
+                'id = "bad_agent_test"',
+                'version = "1.0"',
+                'name = "Bad agent test"',
+                'description = "Template used by bad-agent gate tests."',
+                'modes = ["explanation"]',
+                'required_searches = ["provider_id"]',
+                'contradiction_searches = ["missing provider error"]',
+                'evidence_categories = ["tests"]',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    harness = PlumbrefHarness()
+    state = harness.start_session(
+        repo_root=repo_root,
+        question="What happens if provider_id is missing?",
+        answer="The scheduled job behavior is covered by tests.",
+        template_id="bad_agent_test",
+    )
+    claim = ClaimWorkItem(
+        text="The scheduled job behavior is covered by tests.",
+        claim_type=ClaimType.BEHAVIOR,
+    )
+    harness.store_claims([claim], session_id=state.session.id)
+    state.traces.extend(
+        [
+            SearchTrace(
+                claim_id=claim.id,
+                query="provider_id",
+                command=["rg", "provider_id"],
+                matched_files=[],
+                elapsed_ms=1,
+            ),
+            SearchTrace(
+                claim_id=claim.id,
+                query="missing provider error",
+                command=["rg", "missing provider error"],
+                matched_files=[],
+                elapsed_ms=1,
+            ),
+        ]
+    )
+    config = load_config(repo_root)
+    config.cache_path = tmp_path / "cache"
+    snippet = read_evidence(
+        state=state,
+        config=config,
+        claim_id=claim.id,
+        file="app.py",
+        start_line=1,
+        end_line=4,
+        summary="The implementation returns skipped for missing provider_id.",
+        evidence_category="tests",
+    )
+    record_judgment(
+        state=state,
+        claim_id=claim.id,
+        status=ClaimStatus.SUPPORTED,
+        evidence_ids=[snippet.id],
+        reasoning_summary="The agent claims this proves test coverage.",
+        contradiction_searched=True,
+    )
+
+    report = render_report(state=state, config=config, write_files=False)
+
+    quality = report.json_report["quality"]
+    missing = quality["gate_coverage"]["missing_by_claim"][claim.id]
+    assert quality["answer_gate"]["status"] == "answer_with_qualifications"
+    assert "Run or record required search: provider_id." in missing
+    assert "Read evidence for required category: tests." in missing
+    assert quality["safe_answer"]["supported"] == []
+    assert quality["safe_answer"]["qualified"][0]["status"] == "missing_checks"
 
 
 def test_report_outcome_qualifies_too_broad_claims(tmp_path: Path) -> None:
