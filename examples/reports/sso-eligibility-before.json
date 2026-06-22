@@ -166,9 +166,70 @@
   "quality": {
     "answer_gate": {
       "can_answer": true,
-      "label": "Safe to answer from checked evidence",
-      "status": "safe_to_answer",
-      "summary": "All recorded claims are supported by cited source evidence."
+      "label": "Answer with qualifications",
+      "status": "answer_with_qualifications",
+      "summary": "2 supported claim(s) need required verification checks before they are safe to rely on."
+    },
+    "gate_coverage": {
+      "budget_exhausted_claims": [],
+      "missing": [
+        "85ae5ed3-a505-4fd1-9106-418571f0a355: Run or record required search: SSO eligibility.",
+        "85ae5ed3-a505-4fd1-9106-418571f0a355: Run or record contradiction search: SSO eligibility test.",
+        "85ae5ed3-a505-4fd1-9106-418571f0a355: Read evidence for required category: main implementation path.",
+        "b183c204-f92c-466c-8fc8-1ed40ed912d4: Run or record required search: SSO eligibility.",
+        "b183c204-f92c-466c-8fc8-1ed40ed912d4: Run or record contradiction search: SSO eligibility test.",
+        "b183c204-f92c-466c-8fc8-1ed40ed912d4: Read evidence for required category: main implementation path."
+      ],
+      "missing_by_claim": {
+        "85ae5ed3-a505-4fd1-9106-418571f0a355": [
+          "Run or record required search: SSO eligibility.",
+          "Run or record required search: start_sso_login.",
+          "Run or record required search: Company.",
+          "Run or record required search: Rippling or Okta.",
+          "Run or record contradiction search: SSO eligibility test.",
+          "Run or record contradiction search: SSO eligibility error.",
+          "Run or record contradiction search: start_sso_login disabled.",
+          "Run or record contradiction search: Rippling or Okta mock.",
+          "Read evidence for required category: main implementation path.",
+          "Read evidence for required category: data inputs.",
+          "Read evidence for required category: data outputs.",
+          "Read evidence for required category: external calls.",
+          "Read evidence for required category: failure handling.",
+          "Read evidence for required category: docs."
+        ],
+        "b183c204-f92c-466c-8fc8-1ed40ed912d4": [
+          "Run or record required search: SSO eligibility.",
+          "Run or record required search: start_sso_login.",
+          "Run or record required search: Company.",
+          "Run or record required search: Rippling or Okta.",
+          "Run or record contradiction search: SSO eligibility test.",
+          "Run or record contradiction search: SSO eligibility error.",
+          "Run or record contradiction search: start_sso_login disabled.",
+          "Run or record contradiction search: Rippling or Okta mock.",
+          "Read evidence for required category: main implementation path.",
+          "Read evidence for required category: data inputs.",
+          "Read evidence for required category: data outputs.",
+          "Read evidence for required category: external calls.",
+          "Read evidence for required category: failure handling.",
+          "Read evidence for required category: docs."
+        ]
+      },
+      "supported_claims_missing_contradiction_searches": [
+        "85ae5ed3-a505-4fd1-9106-418571f0a355",
+        "b183c204-f92c-466c-8fc8-1ed40ed912d4"
+      ],
+      "supported_claims_missing_evidence_categories": [
+        "85ae5ed3-a505-4fd1-9106-418571f0a355",
+        "b183c204-f92c-466c-8fc8-1ed40ed912d4"
+      ],
+      "supported_claims_missing_required_claim_types": [
+        "85ae5ed3-a505-4fd1-9106-418571f0a355",
+        "b183c204-f92c-466c-8fc8-1ed40ed912d4"
+      ],
+      "supported_claims_missing_required_searches": [
+        "85ae5ed3-a505-4fd1-9106-418571f0a355",
+        "b183c204-f92c-466c-8fc8-1ed40ed912d4"
+      ]
     },
     "broad_claims": [
       {
@@ -629,21 +690,21 @@
     ],
     "safe_answer": {
       "avoid": [],
-      "qualified": [],
-      "supported": [
+      "qualified": [
         {
           "claim_id": "85ae5ed3-a505-4fd1-9106-418571f0a355",
-          "limits": "",
-          "status": "supported",
+          "limits": "Run or record required search: SSO eligibility. Run or record contradiction search: SSO eligibility test. Read evidence for required category: main implementation path.",
+          "status": "missing_checks",
           "text": "SSO login starts from start_sso_login, which calls is_sso_eligible before returning sso-login."
         },
         {
           "claim_id": "b183c204-f92c-466c-8fc8-1ed40ed912d4",
-          "limits": "This fixture does not claim anything about production configuration.",
-          "status": "supported",
+          "limits": "Run or record required search: SSO eligibility. Run or record contradiction search: SSO eligibility test. Read evidence for required category: main implementation path.",
+          "status": "missing_checks",
           "text": "SSO only starts when Rippling integration exists or Okta is enabled."
         }
-      ]
+      ],
+      "supported": []
     },
     "score": 36,
     "summary": "9/25 observable verification check(s) complete."

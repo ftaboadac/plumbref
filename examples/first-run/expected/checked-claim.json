@@ -1,0 +1,49 @@
+{
+  "absolute_language": [
+    "only"
+  ],
+  "claim_id": "claim-001",
+  "claim_text": "SSO only depends on Okta.",
+  "claim_type": "business_rule",
+  "contradiction_searched": true,
+  "created_at": "2026-06-22T00:00:00Z",
+  "evidence": [
+    {
+      "evidence_category": "main implementation path",
+      "file": "examples/fixtures/sso-before/app/sso.py",
+      "sha256": "example",
+      "start_line": 15,
+      "end_line": 22,
+      "summary": "SSO eligibility allows either a Rippling integration or Okta."
+    }
+  ],
+  "gate_status": "do_not_claim",
+  "gate_summary": "At least one claim is contradicted by source evidence.",
+  "limits": "The checked implementation has a non-Okta SSO eligibility path.",
+  "missing_checks": [],
+  "mode": "explanation",
+  "question": "The agent said SSO only depends on Okta. Check that before I tell support.",
+  "repo_identity": "example",
+  "repo_state": "example",
+  "report_identity": "example",
+  "risk": "medium",
+  "safer_wording": "The checked SSO eligibility path can allow SSO through Okta or a Rippling integration.",
+  "schema_version": "1",
+  "searches": [
+    {
+      "budget_exhausted": false,
+      "matched_files": [
+        "examples/fixtures/sso-before/app/sso.py"
+      ],
+      "query": "SSO Okta",
+      "truncated": false
+    }
+  ],
+  "source_claim_id": "example-claim-id",
+  "source_report_path": "examples/first-run/expected/report.json",
+  "status": "contradicted",
+  "template_id": "explain_flow",
+  "template_values": {
+    "flow_name": "SSO eligibility"
+  }
+}

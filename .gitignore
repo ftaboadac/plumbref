@@ -15,3 +15,12 @@ coverage.xml
 
 # Local repo overrides may contain private paths or redaction patterns.
 .plumbref.local.toml
+
+# Keep working docs private by default. Public docs are allowlisted below.
+docs/**
+!docs/
+!docs/assets/
+!docs/assets/plumbref-readme-hero.png
+!docs/agent-usage.md
+!docs/real-workflow-test-results.md
+!docs/launch-checklist.md

@@ -473,10 +473,13 @@ def test_report_outcome_tracks_answer_gate_and_scope(tmp_path: Path) -> None:
     assert "## Verification Outcome" in report.markdown
     assert report.markdown.index("## Verification Outcome") < report.markdown.index("## Answer Under Review")
     assert "The job always skips missing providers." in report.markdown
-    assert "Answer gate: Safe to answer from checked evidence" in report.markdown
+    assert "Answer gate: Answer with qualifications" in report.markdown
     assert "Broad claims detected" not in report.markdown
     assert "Score:" not in report.markdown
-    assert quality["answer_gate"]["status"] == "safe_to_answer"
+    assert quality["answer_gate"]["status"] == "answer_with_qualifications"
+    assert quality["answer_gate"]["summary"] == (
+        "1 supported claim(s) need required verification checks before they are safe to rely on."
+    )
     assert quality["score"] < 100
     assert quality["checklist"]["required_searches"][0]["passed"] is True
     assert any(
@@ -485,8 +488,271 @@ def test_report_outcome_tracks_answer_gate_and_scope(tmp_path: Path) -> None:
     assert any(
         item == "Run or record contradiction search: run_scheduled_job error." for item in quality["next_checks"]
     )
+    assert any(
+        "Run or record contradiction search: run_scheduled_job error."
+        in item
+        for item in quality["gate_coverage"]["missing_by_claim"][claim.id]
+    )
     assert quality["broad_claims"][0]["terms"] == ["always"]
-    assert quality["safe_answer"]["supported"][0]["text"] == "The job always skips missing providers."
+    assert quality["safe_answer"]["supported"] == []
+    assert quality["safe_answer"]["qualified"][0]["status"] == "missing_checks"
+    assert quality["safe_answer"]["qualified"][0]["text"] == "The job always skips missing providers."
+
+
+def test_supported_claim_missing_required_search_is_not_safe(tmp_path: Path) -> None:
+    """Template required searches are gate inputs, not just informational checks."""
+    repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
+    harness = PlumbrefHarness()
+    state = harness.start_session(
+        repo_root=repo_root,
+        question="What happens if provider_id is missing?",
+        answer="The scheduled job skips work when provider_id is missing.",
+        template_id="generic_verification",
+        template_values={
+            "primary_entity": "provider_id",
+            "primary_action": "skip",
+            "claim_keyword": "job",
+        },
+    )
+    claim = ClaimWorkItem(
+        text="The scheduled job skips work when provider_id is missing.",
+        claim_type=ClaimType.BEHAVIOR,
+    )
+    harness.store_claims([claim], session_id=state.session.id)
+    state.traces.extend(
+        [
+            SearchTrace(
+                claim_id=claim.id,
+                query="provider_id",
+                command=["rg", "provider_id"],
+                matched_files=["app.py"],
+                elapsed_ms=1,
+            ),
+            SearchTrace(
+                claim_id=claim.id,
+                query="skip",
+                command=["rg", "skip"],
+                matched_files=["app.py"],
+                elapsed_ms=1,
+            ),
+        ]
+    )
+    config = load_config(repo_root)
+    config.cache_path = tmp_path / "cache"
+    snippet = read_evidence(
+        state=state,
+        config=config,
+        claim_id=claim.id,
+        file="app.py",
+        start_line=8,
+        end_line=11,
+        summary="run_scheduled_job returns skipped when provider_id is missing.",
+        evidence_category="direct implementation",
+    )
+    record_judgment(
+        state=state,
+        claim_id=claim.id,
+        status=ClaimStatus.SUPPORTED,
+        evidence_ids=[snippet.id],
+        reasoning_summary="The function returns skipped for missing provider_id.",
+        contradiction_searched=True,
+    )
+
+    report = render_report(state=state, config=config, write_files=False)
+
+    quality = report.json_report["quality"]
+    assert quality["answer_gate"]["status"] == "answer_with_qualifications"
+    assert any(
+        "Run or record required search: job." in item
+        for item in quality["gate_coverage"]["missing_by_claim"][claim.id]
+    )
+    assert quality["safe_answer"]["supported"] == []
+    assert quality["safe_answer"]["qualified"][0]["status"] == "missing_checks"
+
+
+def test_supported_claim_with_unlinked_evidence_is_not_safe(tmp_path: Path) -> None:
+    """Supported judgments must cite evidence that is actually linked to the claim."""
+    repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
+    harness = PlumbrefHarness()
+    state = harness.start_session(
+        repo_root=repo_root,
+        question="What happens if provider_id is missing?",
+        answer="The scheduled job skips work when provider_id is missing.",
+    )
+    claim = ClaimWorkItem(
+        text="The scheduled job skips work when provider_id is missing.",
+        claim_type=ClaimType.BEHAVIOR,
+    )
+    harness.store_claims([claim], session_id=state.session.id)
+    config = load_config(repo_root)
+    config.cache_path = tmp_path / "cache"
+    snippet = read_evidence(
+        state=state,
+        config=config,
+        claim_id=claim.id,
+        file="app.py",
+        start_line=8,
+        end_line=11,
+        summary="run_scheduled_job returns skipped when provider_id is missing.",
+    )
+    snippet.claim_id = "other-claim"
+    snippet.claim_ids = ["other-claim"]
+    record_judgment(
+        state=state,
+        claim_id=claim.id,
+        status=ClaimStatus.SUPPORTED,
+        evidence_ids=[snippet.id],
+        reasoning_summary="The function returns skipped for missing provider_id.",
+        contradiction_searched=True,
+    )
+
+    report = render_report(state=state, config=config, write_files=False)
+
+    quality = report.json_report["quality"]
+    assert quality["answer_gate"]["status"] == "answer_with_qualifications"
+    assert any(
+        "Evidence id is not linked to this claim" in item
+        for item in quality["gate_coverage"]["missing_by_claim"][claim.id]
+    )
+    assert quality["safe_answer"]["supported"] == []
+
+
+def test_supported_claim_with_budget_exhaustion_is_not_safe(tmp_path: Path) -> None:
+    """Budget exhaustion is a gate blocker because checked scope is incomplete."""
+    repo_root = Path(__file__).parent / "fixtures" / "sample_repo"
+    harness = PlumbrefHarness()
+    state = harness.start_session(
+        repo_root=repo_root,
+        question="What happens if provider_id is missing?",
+        answer="The scheduled job skips work when provider_id is missing.",
+    )
+    claim = ClaimWorkItem(
+        text="The scheduled job skips work when provider_id is missing.",
+        claim_type=ClaimType.BEHAVIOR,
+    )
+    harness.store_claims([claim], session_id=state.session.id)
+    state.traces.append(
+        SearchTrace(
+            claim_id=claim.id,
+            query="provider_id callers",
+            command=["rg", "provider_id callers"],
+            elapsed_ms=0,
+            budget_exhausted=True,
+        )
+    )
+    config = load_config(repo_root)
+    config.cache_path = tmp_path / "cache"
+    snippet = read_evidence(
+        state=state,
+        config=config,
+        claim_id=claim.id,
+        file="app.py",
+        start_line=8,
+        end_line=11,
+        summary="run_scheduled_job returns skipped when provider_id is missing.",
+    )
+    record_judgment(
+        state=state,
+        claim_id=claim.id,
+        status=ClaimStatus.SUPPORTED,
+        evidence_ids=[snippet.id],
+        reasoning_summary="The function returns skipped for missing provider_id.",
+        contradiction_searched=True,
+    )
+
+    report = render_report(state=state, config=config, write_files=False)
+
+    quality = report.json_report["quality"]
+    assert quality["answer_gate"]["status"] == "answer_with_qualifications"
+    assert "Budget exhausted while checking this claim." in quality["gate_coverage"]["missing_by_claim"][claim.id]
+    assert quality["gate_coverage"]["budget_exhausted_claims"] == [claim.id]
+
+
+def test_non_broad_supported_claim_missing_template_checks_is_not_safe(tmp_path: Path) -> None:
+    """All selected-template checks gate safe output, not only broad-claim checks."""
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "app.py").write_text(
+        "\n".join(
+            [
+                "def run_scheduled_job(provider_id):",
+                "    if provider_id is None:",
+                "        return 'skipped'",
+                "    return 'ran'",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    template_dir = repo_root / ".plumbref" / "templates"
+    template_dir.mkdir(parents=True)
+    (template_dir / "strict_test.toml").write_text(
+        "\n".join(
+            [
+                'id = "strict_test"',
+                'version = "1.0"',
+                'name = "Strict test"',
+                'description = "Template used by strict gate tests."',
+                'modes = ["explanation"]',
+                'required_claim_types = ["behavior", "api"]',
+                'required_searches = ["provider_id"]',
+                'contradiction_searches = ["provider_id error"]',
+                'evidence_categories = ["direct implementation", "tests"]',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    harness = PlumbrefHarness()
+    state = harness.start_session(
+        repo_root=repo_root,
+        question="What happens if provider_id is missing?",
+        answer="The scheduled job skips work when provider_id is missing.",
+        template_id="strict_test",
+    )
+    claim = ClaimWorkItem(
+        text="The scheduled job skips work when provider_id is missing.",
+        claim_type=ClaimType.BEHAVIOR,
+    )
+    harness.store_claims([claim], session_id=state.session.id)
+    state.traces.append(
+        SearchTrace(
+            claim_id=claim.id,
+            query="provider_id",
+            command=["rg", "provider_id"],
+            matched_files=["app.py"],
+            elapsed_ms=1,
+        )
+    )
+    config = load_config(repo_root)
+    config.cache_path = tmp_path / "cache"
+    snippet = read_evidence(
+        state=state,
+        config=config,
+        claim_id=claim.id,
+        file="app.py",
+        start_line=1,
+        end_line=4,
+        summary="run_scheduled_job returns skipped when provider_id is missing.",
+        evidence_category="direct implementation",
+    )
+    record_judgment(
+        state=state,
+        claim_id=claim.id,
+        status=ClaimStatus.SUPPORTED,
+        evidence_ids=[snippet.id],
+        reasoning_summary="The function returns skipped for missing provider_id.",
+        contradiction_searched=True,
+    )
+
+    report = render_report(state=state, config=config, write_files=False)
+
+    quality = report.json_report["quality"]
+    missing = quality["gate_coverage"]["missing_by_claim"][claim.id]
+    assert quality["answer_gate"]["status"] == "answer_with_qualifications"
+    assert "Record required claim type: api." in missing
+    assert "Run or record contradiction search: provider_id error." in missing
+    assert "Read evidence for required category: tests." in missing
+    assert quality["gate_coverage"]["supported_claims_missing_contradiction_searches"] == [claim.id]
+    assert quality["gate_coverage"]["supported_claims_missing_evidence_categories"] == [claim.id]
 
 
 def test_report_outcome_qualifies_too_broad_claims(tmp_path: Path) -> None:

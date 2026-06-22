@@ -576,12 +576,21 @@ def build_quality_summary(state: SessionState) -> dict[str, Any]:
         if claim.status != ClaimStatus.SUPPORTED:
             next_checks.append(f"Keep broad claim qualified or narrow it: {claim.text}")
 
+    gate_coverage = build_gate_coverage(
+        supported_claims=supported_claims,
+        state=state,
+        claim_type_completion=claim_type_completion,
+        search_completion=search_completion,
+        contradiction_search_completion=contradiction_search_completion,
+        evidence_category_completion=evidence_category_completion,
+    )
     checks_total = len(checks)
     checks_passed = sum(1 for check in checks if check["passed"])
     score = round((checks_passed / checks_total) * 100) if checks_total else 0
-    answer_gate = build_answer_gate(state, unjudged_claims)
+    answer_gate = build_answer_gate(state, unjudged_claims, gate_coverage)
     return {
         "answer_gate": answer_gate,
+        "gate_coverage": gate_coverage,
         "score": score,
         "grade": quality_grade(score, checks_total),
         "checks_passed": checks_passed,
@@ -608,16 +617,18 @@ def build_quality_summary(state: SessionState) -> dict[str, Any]:
             }
             for claim in broad_claims
         ],
-        "safe_answer": build_safe_answer_summary(state),
+        "safe_answer": build_safe_answer_summary(state, gate_coverage),
     }
 
 
 def build_answer_gate(
     state: SessionState,
     unjudged_claims: list[Any],
+    gate_coverage: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     claims = list(state.claims.values())
     status_counts = Counter(claim.status.value for claim in claims)
+    missing_gate_claims = (gate_coverage or {}).get("missing_by_claim", {})
     if not claims:
         return {
             "status": "not_ready",
@@ -656,6 +667,16 @@ def build_answer_gate(
             "summary": f"{qualified_count} claim(s) need narrower wording or qualification.",
             "can_answer": True,
         }
+    if missing_gate_claims:
+        return {
+            "status": "answer_with_qualifications",
+            "label": "Answer with qualifications",
+            "summary": (
+                f"{len(missing_gate_claims)} supported claim(s) need required verification checks "
+                "before they are safe to rely on."
+            ),
+            "can_answer": True,
+        }
     if status_counts[ClaimStatus.SUPPORTED.value] == len(claims):
         return {
             "status": "safe_to_answer",
@@ -668,6 +689,82 @@ def build_answer_gate(
         "label": "Answer with limits",
         "summary": "Use only the parts supported by recorded source evidence.",
         "can_answer": True,
+    }
+
+
+def build_gate_coverage(
+    *,
+    supported_claims: list[Any],
+    state: SessionState,
+    claim_type_completion: list[dict[str, Any]],
+    search_completion: list[dict[str, Any]],
+    contradiction_search_completion: list[dict[str, Any]],
+    evidence_category_completion: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Return strict-gate blockers that prevent supported claims from being safe."""
+    failed_claim_types = [item for item in claim_type_completion if not item["passed"]]
+    failed_required_searches = [
+        item for item in search_completion if not item["passed"] and not item.get("skipped")
+    ]
+    failed_contradiction_searches = [
+        item for item in contradiction_search_completion if not item["passed"] and not item.get("skipped")
+    ]
+    failed_evidence_categories = [
+        item for item in evidence_category_completion if not item["passed"]
+    ]
+    budget_exhausted_traces = [trace for trace in state.traces if trace.budget_exhausted]
+    missing_by_claim: dict[str, list[str]] = {}
+    missing: list[str] = []
+
+    for claim in supported_claims:
+        claim_missing: list[str] = []
+        judgment = state.judgments.get(claim.id)
+        if not judgment:
+            claim_missing.append("Record a judgment before treating the claim as supported.")
+        else:
+            for evidence_id in judgment.evidence_ids:
+                snippet = state.evidence.get(evidence_id)
+                if snippet is None:
+                    claim_missing.append(f"Evidence id not found in session: {evidence_id}.")
+                elif claim.id not in snippet.claim_ids and snippet.claim_id != claim.id:
+                    claim_missing.append(f"Evidence id is not linked to this claim: {evidence_id}.")
+            if not judgment.evidence_ids:
+                claim_missing.append("Supported claim has no linked evidence.")
+
+        claim_missing.extend(
+            f"Record required claim type: {item['claim_type']}." for item in failed_claim_types
+        )
+        claim_missing.extend(search_next_check("required search", item) for item in failed_required_searches)
+        claim_missing.extend(search_next_check("contradiction search", item) for item in failed_contradiction_searches)
+        claim_missing.extend(
+            f"Read evidence for required category: {item['category']}." for item in failed_evidence_categories
+        )
+
+        if any(trace.claim_id == claim.id for trace in budget_exhausted_traces):
+            claim_missing.append("Budget exhausted while checking this claim.")
+
+        if claim_missing:
+            missing_by_claim[claim.id] = dedupe_preserve_order(claim_missing)
+            missing.extend(f"{claim.id}: {item}" for item in missing_by_claim[claim.id])
+
+    return {
+        "missing": dedupe_preserve_order(missing),
+        "missing_by_claim": missing_by_claim,
+        "supported_claims_missing_required_claim_types": [
+            claim.id for claim in supported_claims if failed_claim_types
+        ],
+        "supported_claims_missing_required_searches": [
+            claim.id for claim in supported_claims if failed_required_searches
+        ],
+        "supported_claims_missing_contradiction_searches": [
+            claim.id for claim in supported_claims if failed_contradiction_searches
+        ],
+        "supported_claims_missing_evidence_categories": [
+            claim.id for claim in supported_claims if failed_evidence_categories
+        ],
+        "budget_exhausted_claims": dedupe_preserve_order(
+            [trace.claim_id for trace in budget_exhausted_traces]
+        ),
     }
 
 
@@ -811,10 +908,14 @@ def dedupe_preserve_order(values: list[str]) -> list[str]:
     return deduped
 
 
-def build_safe_answer_summary(state: SessionState) -> dict[str, Any]:
+def build_safe_answer_summary(
+    state: SessionState,
+    gate_coverage: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     supported = []
     qualified = []
     avoid = []
+    missing_by_claim = (gate_coverage or {}).get("missing_by_claim", {})
     for claim in state.claims.values():
         judgment = state.judgments.get(claim.id)
         item = {
@@ -824,7 +925,11 @@ def build_safe_answer_summary(state: SessionState) -> dict[str, Any]:
             "limits": judgment.limits if judgment else "",
             "safer_wording": preferred_safer_wording(judgment),
         }
-        if claim.status == ClaimStatus.SUPPORTED:
+        if claim.id in missing_by_claim:
+            item["status"] = "missing_checks"
+            item["limits"] = " ".join(missing_by_claim[claim.id])
+            qualified.append(item)
+        elif claim.status == ClaimStatus.SUPPORTED:
             supported.append(item)
         elif claim.status in {ClaimStatus.TOO_BROAD, ClaimStatus.UNCERTAIN, ClaimStatus.NOT_FOUND}:
             qualified.append(item)

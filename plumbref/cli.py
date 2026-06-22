@@ -12,6 +12,13 @@ import typer
 from pydantic import ValidationError
 
 from plumbref.change_context import ChangeContextError, build_change_context
+from plumbref.checked_claims import (
+    CheckedClaimError,
+    export_checked_claims,
+    render_checked_claim_diff,
+    render_rerun_packet,
+)
+from plumbref.claim_checks import ClaimCheckError, render_claim_check
 from plumbref.config import ConfigLoadError, load_config
 from plumbref.models import (
     BudgetMode,
@@ -299,6 +306,84 @@ def diff_reports(
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(markdown, encoding="utf-8")
         typer.echo(f"Wrote report diff: {output}")
+        return
+    typer.echo(markdown)
+
+
+@app.command("export-claims")
+def export_claims(
+    report: Annotated[Path, typer.Argument(help="Plumbref JSON report to export claims from.")],
+    out: Annotated[Path, typer.Option("--out", "-o", help="Directory for checked-claim JSON files.")] = Path(
+        ".plumbref/claims"
+    ),
+) -> None:
+    try:
+        written = export_checked_claims(report, out)
+    except CheckedClaimError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    for path in written:
+        typer.echo(f"Wrote checked claim: {path}")
+
+
+@app.command("diff-claims")
+def diff_claims(
+    old_claim: Annotated[Path, typer.Argument(help="Old checked-claim JSON artifact.")],
+    new_claim: Annotated[Path, typer.Argument(help="New checked-claim JSON artifact.")],
+    output: Annotated[Path | None, typer.Option("--output", "-o", help="Write Markdown diff to this path.")] = None,
+) -> None:
+    try:
+        markdown = render_checked_claim_diff(old_claim, new_claim)
+    except CheckedClaimError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    if output:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(markdown, encoding="utf-8")
+        typer.echo(f"Wrote checked-claim diff: {output}")
+        return
+    typer.echo(markdown)
+
+
+@app.command("rerun")
+def rerun_claim(
+    claim: Annotated[Path, typer.Argument(help="Checked-claim JSON artifact to rerun.")],
+    output: Annotated[Path | None, typer.Option("--output", "-o", help="Write rerun packet to this path.")] = None,
+) -> None:
+    try:
+        markdown = render_rerun_packet(claim)
+    except CheckedClaimError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    if output:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(markdown, encoding="utf-8")
+        typer.echo(f"Wrote rerun packet: {output}")
+        return
+    typer.echo(markdown)
+
+
+@app.command("check-claims")
+def check_claims(
+    claims: Annotated[Path, typer.Argument(help="Markdown file containing explicit claims to check.")],
+    repo_root: Annotated[Path | None, typer.Option(help="Repository root for git diff.")] = None,
+    diff_target: Annotated[
+        str | None,
+        typer.Option("--diff", help="Git diff target, such as main...HEAD. Defaults to HEAD."),
+    ] = None,
+    diff_file: Annotated[Path | None, typer.Option("--diff-file", help="Read changed files from a diff patch.")] = None,
+    output: Annotated[Path | None, typer.Option("--output", "-o", help="Write advisory Markdown to this path.")] = None,
+) -> None:
+    try:
+        markdown = render_claim_check(
+            claims_path=claims,
+            repo_root=(repo_root or Path.cwd()).expanduser().resolve(),
+            diff_target=diff_target,
+            diff_path=diff_file,
+        )
+    except ClaimCheckError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    if output:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(markdown, encoding="utf-8")
+        typer.echo(f"Wrote claim check: {output}")
         return
     typer.echo(markdown)
 
