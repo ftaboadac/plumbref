@@ -72,6 +72,24 @@ required contradiction searches and evidence are recorded.
 See [expected/checked-claim.json](expected/checked-claim.json) for the checked
 claim shape exported from a report.
 
+## Captured Codex Run
+
+A real Codex CLI first-run transcript is captured in
+[codex-live-first-run-2026-06-22.md](codex-live-first-run-2026-06-22.md).
+
+It includes:
+
+- the exact noninteractive Codex MCP config
+- real Plumbref MCP tool calls
+- first-run enum friction Codex hit and recovered from
+- the final inline answer
+- the generated report path
+- archived raw JSONL transcript and report copies
+
+The benchmark against careful prompting plus `rg`, including the clean
+customer-exports Codex run with no failed MCP tool calls, is tracked in
+[benchmark-and-user-validation.md](benchmark-and-user-validation.md).
+
 This example is intentionally small. It proves the first value moment:
 
 - risky claim

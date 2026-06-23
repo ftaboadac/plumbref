@@ -201,6 +201,24 @@ engineering answers, use `budget_mode="normal"`. Use `budget_mode="deep"` when
 the question has broad impact, external contracts, data movement, or absolute
 language.
 
+Valid verification modes are `explanation`, `scenario`, and `change_impact`.
+The MCP server also accepts common first-run aliases such as `verify`,
+`verification`, and `explain_flow` for `explanation`.
+
+Valid output modes are `engineer`, `support`, and `json`. The MCP server also
+accepts `inline_answer`, `inline`, `answer`, `report`, and `markdown` as
+aliases for `engineer`, because agents often ask for the chat-shaped answer or
+report surface rather than the internal renderer name.
+
+Valid judgment statuses are `supported`, `contradicted`, `uncertain`,
+`too_broad`, `not_found`, and `not_verifiable`. The MCP server accepts common
+aliases conservatively: for example, `refuted` maps to `contradicted`, while
+`partially_supported` maps to `uncertain`.
+
+Valid claim types are `definition`, `behavior`, `api`, `ui`, `business_rule`,
+`impact`, `recommendation`, and `unknown`. The MCP server accepts common
+claim-type guesses such as `data_outputs` and maps them to `behavior`.
+
 ## Template Selection
 
 Use these defaults:

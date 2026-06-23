@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class ClaimStatus(StrEnum):
@@ -172,12 +172,35 @@ class ClaimWorkItem(BaseModel):
     text: str = Field(min_length=1)
     expected_outcome: str | None = None
     assumptions: list[str] = Field(default_factory=list)
-    claim_type: ClaimType = ClaimType.UNKNOWN
+    claim_type: ClaimType = Field(default=ClaimType.UNKNOWN, validation_alias=AliasChoices("claim_type", "type"))
     entities: list[str] = Field(default_factory=list)
     risk: RiskLevel = RiskLevel.MEDIUM
     absolute_language: list[str] = Field(default_factory=list)
     status: ClaimStatus = ClaimStatus.UNCERTAIN
     usage: BudgetUsage = Field(default_factory=BudgetUsage)
+
+    @field_validator("claim_type", mode="before")
+    @classmethod
+    def normalize_claim_type(cls, value: Any) -> Any:
+        if value is None:
+            return value
+        normalized = str(value).strip().lower().replace("-", "_").replace(" ", "_")
+        aliases = {
+            "rule": ClaimType.BUSINESS_RULE,
+            "business": ClaimType.BUSINESS_RULE,
+            "business_rules": ClaimType.BUSINESS_RULE,
+            "data_output": ClaimType.BEHAVIOR,
+            "data_outputs": ClaimType.BEHAVIOR,
+            "output": ClaimType.BEHAVIOR,
+            "outputs": ClaimType.BEHAVIOR,
+            "data_input": ClaimType.BEHAVIOR,
+            "data_inputs": ClaimType.BEHAVIOR,
+            "input": ClaimType.BEHAVIOR,
+            "inputs": ClaimType.BEHAVIOR,
+            "flow": ClaimType.BEHAVIOR,
+            "workflow": ClaimType.BEHAVIOR,
+        }
+        return aliases.get(normalized, normalized)
 
     @model_validator(mode="after")
     def detect_absolute_language(self) -> ClaimWorkItem:

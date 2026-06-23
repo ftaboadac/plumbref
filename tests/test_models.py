@@ -9,6 +9,7 @@ from plumbref.models import (
     ChangeContext,
     ChangeSource,
     ClaimStatus,
+    ClaimType,
     ClaimWorkItem,
     Judgment,
     SearchBudget,
@@ -72,6 +73,32 @@ def test_claim_detects_reliance_risk_phrases() -> None:
     assert "only" in claim.absolute_language
     assert "no downstream" in claim.absolute_language
     assert "no consumers" in claim.absolute_language
+
+
+def test_claim_work_item_accepts_type_alias() -> None:
+    """MCP-style claim payloads can use type as an alias for claim_type."""
+    claim = ClaimWorkItem.model_validate(
+        {
+            "id": "claim-1",
+            "text": "Exports are CSV-only.",
+            "type": "behavior",
+        }
+    )
+
+    assert claim.claim_type == ClaimType.BEHAVIOR
+
+
+def test_claim_work_item_normalizes_common_type_values() -> None:
+    """MCP-style claim payloads can use natural type labels agents tend to infer."""
+    claim = ClaimWorkItem.model_validate(
+        {
+            "id": "claim-1",
+            "text": "Exports only go to S3.",
+            "type": "data_outputs",
+        }
+    )
+
+    assert claim.claim_type == ClaimType.BEHAVIOR
 
 
 def test_supported_broad_claim_requires_contradiction_notes(tmp_path: Path) -> None:

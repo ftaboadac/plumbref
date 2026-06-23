@@ -49,6 +49,14 @@ Before posting, have one demo that shows:
 The checked-in dogfood demo is:
 
 - [Template loading demo](../examples/reports/plumbref-template-loading-demo.md)
+- [Codex live first-run transcript](../examples/first-run/codex-live-first-run-2026-06-22.md)
+
+Before claiming the product beats a careful agent, compare it with a direct
+careful-prompt-plus-`rg` baseline. The first small benchmark is in
+[Benchmark And User Validation](../examples/first-run/benchmark-and-user-validation.md);
+it shows the baseline can answer the SSO and customer-export fixtures correctly,
+while Plumbref's current advantage is the durable checked-claim trail,
+contradiction-pass ledger, and report.
 
 ## Honest Public Claims
 
@@ -71,6 +79,9 @@ Good claims:
   through a structured protocol.
 - Plumbref can reuse cached evidence as compact references when source files
   have not changed.
+- In the captured Codex benchmarks, careful `rg` also answered the fixtures
+  correctly; Plumbref's added value was the inspectable report and reusable
+  claim trail.
 
 Avoid claiming:
 
@@ -79,6 +90,7 @@ Avoid claiming:
 - Plumbref fully understands every framework or architecture.
 - Plumbref guarantees every required template check is complete.
 - Plumbref always uses fewer tokens than a careful expert agent.
+- Plumbref is proven more correct than careful prompting plus `rg`.
 - Plumbref inspects production data or external systems.
 
 ## Current Limitations
@@ -117,10 +129,13 @@ to see whether the code still supports them.
 Demo metrics to include:
 
 ```text
-Demo: template loading in Plumbref itself
-- Claims checked: 3
-- Searches run: 5
-- Evidence snippets read: 4
-- Supported claims: 2
-- Too-broad claims caught: 1
+Demo: customer exports fixture
+- Claims checked: 4
+- Contradicted claims: 3
+- Uncertain/qualified claims: 1
+- Contradiction passes: 4/4
+- Evidence records: 5
+- Bounded snippet reads: 3
+- Failed MCP tool calls in clean Codex run: 0
+- Baseline careful-rg result: also correct, but no reusable report
 ```

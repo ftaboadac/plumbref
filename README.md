@@ -179,10 +179,9 @@ For agent-specific usage guidance and conversational examples, see
 [Agent Usage Guide](docs/agent-usage.md).
 
 For the current first-run proof path, see
-[examples/first-run](examples/first-run/). It shows the SSO claim prompt,
-expected tool flow, inline answer shape, and checked-claim artifact. That
-fixture is a stdio transcript example, not yet a captured live client transcript
-from Codex, Claude Code, or Cursor.
+[examples/first-run](examples/first-run/). It includes captured Codex CLI
+transcripts, real Plumbref MCP tool calls, inline answers, generated report
+paths, and a careful-prompt-plus-`rg` baseline.
 
 ## Templates
 
@@ -269,6 +268,7 @@ without repasting source text.
 Current demo artifacts:
 
 - [First-run SSO fixture](examples/first-run/)
+- [Customer exports benchmark](examples/first-run/benchmark-and-user-validation.md)
 - [SSO business-rule drift diff](examples/reports/sso-eligibility-drift-diff.md)
 
 Historical dogfood reports live in [examples/reports](examples/reports/).
@@ -291,6 +291,12 @@ Plumbref also reduced source text compared with opening every matched file, but
 it does not claim to always use fewer tokens than a careful expert agent. See
 [Real Workflow Test Results](docs/real-workflow-test-results.md) for the
 measurement details and limitations.
+
+The current public benchmark shows the same pattern more concretely: careful
+prompting plus `rg` can answer the controlled fixtures correctly, while
+Plumbref adds structured claim state, contradiction-pass records, durable
+Markdown/JSON reports, and rerunnable evidence trails. Do not use the current
+fixtures to claim Plumbref is more correct than a careful agent.
 
 ## Config
 

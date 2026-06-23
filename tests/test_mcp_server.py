@@ -11,6 +11,29 @@ def test_mcp_server_import_does_not_require_runtime_import() -> None:
     assert plumbref.mcp_server.run_mcp_server
 
 
+def test_mcp_start_normalizes_common_agent_aliases() -> None:
+    """Common first-run agent guesses map to valid internal enums."""
+    from plumbref.mcp_server import normalize_output_modes, normalize_verification_mode
+    from plumbref.models import OutputMode, VerificationMode
+
+    assert normalize_verification_mode("verify") == VerificationMode.EXPLANATION
+    assert normalize_verification_mode("explain-flow") == VerificationMode.EXPLANATION
+    assert normalize_output_modes(["inline_answer", "report"]) == [OutputMode.ENGINEER]
+    assert normalize_output_modes(["json_report", "support_answer"]) == [OutputMode.JSON, OutputMode.SUPPORT]
+
+
+def test_mcp_record_judgment_normalizes_common_status_aliases() -> None:
+    """Common first-run judgment guesses map to conservative claim statuses."""
+    from plumbref.mcp_server import normalize_claim_status
+    from plumbref.models import ClaimStatus
+
+    assert normalize_claim_status("refuted") == ClaimStatus.CONTRADICTED
+    assert normalize_claim_status("partially_supported") == ClaimStatus.UNCERTAIN
+    assert normalize_claim_status("partially-supported") == ClaimStatus.UNCERTAIN
+    assert normalize_claim_status("overbroad") == ClaimStatus.TOO_BROAD
+    assert normalize_claim_status("unverifiable") == ClaimStatus.NOT_VERIFIABLE
+
+
 def test_mcp_diff_reports_tool_returns_structured_diff(tmp_path: Path) -> None:
     """MCP diff helper returns summary, changes, and Markdown for agents."""
     from plumbref.mcp_server import diff_reports_tool

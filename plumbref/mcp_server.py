@@ -22,6 +22,76 @@ from plumbref.sessions import HARNESS
 from plumbref.template_registry import get_template, load_templates, summarize_templates
 
 
+def normalize_verification_mode(value: str | None) -> VerificationMode:
+    if value is None:
+        return VerificationMode.EXPLANATION
+    normalized = value.strip().lower().replace("-", "_")
+    aliases = {
+        "verify": VerificationMode.EXPLANATION,
+        "verification": VerificationMode.EXPLANATION,
+        "explain": VerificationMode.EXPLANATION,
+        "explain_flow": VerificationMode.EXPLANATION,
+        "impact": VerificationMode.CHANGE_IMPACT,
+        "change": VerificationMode.CHANGE_IMPACT,
+    }
+    if normalized in aliases:
+        return aliases[normalized]
+    return VerificationMode(normalized)
+
+
+def normalize_output_modes(values: list[str] | None) -> list[OutputMode] | None:
+    if not values:
+        return None
+    aliases = {
+        "developer": OutputMode.ENGINEER,
+        "dev": OutputMode.ENGINEER,
+        "engineering": OutputMode.ENGINEER,
+        "markdown": OutputMode.ENGINEER,
+        "report": OutputMode.ENGINEER,
+        "inline": OutputMode.ENGINEER,
+        "inline_answer": OutputMode.ENGINEER,
+        "answer": OutputMode.ENGINEER,
+        "customer": OutputMode.SUPPORT,
+        "support_answer": OutputMode.SUPPORT,
+        "structured": OutputMode.JSON,
+        "json_report": OutputMode.JSON,
+    }
+    modes: list[OutputMode] = []
+    for value in values:
+        normalized = value.strip().lower().replace("-", "_")
+        mode = aliases[normalized] if normalized in aliases else OutputMode(normalized)
+        if mode not in modes:
+            modes.append(mode)
+    return modes or None
+
+
+def normalize_claim_status(value: str) -> ClaimStatus:
+    normalized = value.strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "true": ClaimStatus.SUPPORTED,
+        "verified": ClaimStatus.SUPPORTED,
+        "valid": ClaimStatus.SUPPORTED,
+        "false": ClaimStatus.CONTRADICTED,
+        "refuted": ClaimStatus.CONTRADICTED,
+        "disproved": ClaimStatus.CONTRADICTED,
+        "unsupported": ClaimStatus.CONTRADICTED,
+        "partially_supported": ClaimStatus.UNCERTAIN,
+        "partially_true": ClaimStatus.UNCERTAIN,
+        "mixed": ClaimStatus.UNCERTAIN,
+        "inconclusive": ClaimStatus.UNCERTAIN,
+        "unknown": ClaimStatus.UNCERTAIN,
+        "too_broad": ClaimStatus.TOO_BROAD,
+        "overbroad": ClaimStatus.TOO_BROAD,
+        "not_found": ClaimStatus.NOT_FOUND,
+        "missing": ClaimStatus.NOT_FOUND,
+        "not_verifiable": ClaimStatus.NOT_VERIFIABLE,
+        "unverifiable": ClaimStatus.NOT_VERIFIABLE,
+    }
+    if normalized in aliases:
+        return aliases[normalized]
+    return ClaimStatus(normalized)
+
+
 def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
     try:
         from mcp.server.fastmcp import FastMCP
@@ -41,13 +111,17 @@ def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
         template_id: str | None = None,
         template_values: dict[str, str] | None = None,
     ) -> dict[str, Any]:
-        """Start a verification session."""
-        modes = [OutputMode(output_mode) for output_mode in output_modes] if output_modes else None
+        """Start a verification session.
+
+        Valid modes: explanation, scenario, change_impact; verify maps to explanation.
+        Valid output modes: engineer, support, json; inline_answer/report map to engineer.
+        """
+        modes = normalize_output_modes(output_modes)
         state = HARNESS.start_session(
             repo_root=repo_root,
             question=question,
             answer=answer,
-            mode=VerificationMode(mode),
+            mode=normalize_verification_mode(mode),
             scenario=scenario,
             config_path=config_path,
             budget_mode=BudgetMode(budget_mode) if budget_mode else None,
@@ -169,12 +243,16 @@ def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
         contradiction_searched: bool = False,
         contradiction_notes: str = "",
     ) -> dict[str, Any]:
-        """Record the agent's conservative judgment for one claim."""
+        """Record the agent's conservative judgment for one claim.
+
+        Valid statuses: supported, contradicted, uncertain, too_broad, not_found, not_verifiable.
+        Common aliases like refuted and partially_supported are accepted conservatively.
+        """
         state = HARNESS.get_state(session_id)
         judgment = record_judgment(
             state=state,
             claim_id=claim_id,
-            status=ClaimStatus(status),
+            status=normalize_claim_status(status),
             evidence_ids=evidence_ids,
             reasoning_summary=reasoning_summary,
             limits=limits,
@@ -199,10 +277,14 @@ def run_mcp_server(*, repo_root: Path, config_path: Path | None = None) -> None:
         write_files: bool | None = None,
         report_write_reason: str | None = None,
     ) -> dict[str, Any]:
-        """Render a verification result, writing report files only when policy or explicit request requires it."""
+        """Render a verification result.
+
+        Valid output modes: engineer, support, json; inline_answer/report map to engineer.
+        Set write_files=true to force Markdown/JSON report paths.
+        """
         state = HARNESS.get_state(session_id)
         config = HARNESS.get_config(state.session.id)
-        modes = [OutputMode(mode) for mode in output_modes] if output_modes else None
+        modes = normalize_output_modes(output_modes)
         report = render_report(
             state=state,
             config=config,

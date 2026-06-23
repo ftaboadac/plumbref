@@ -1,0 +1,1503 @@
+{
+  "budget_mode": "normal",
+  "change_context": null,
+  "claims": [
+    {
+      "absolute_language": [
+        "only"
+      ],
+      "assumptions": [],
+      "claim_type": "behavior",
+      "entities": [],
+      "expected_outcome": null,
+      "id": "C1",
+      "judgment": {
+        "claim_id": "C1",
+        "contradiction_notes": "Direct contradiction found in implementation, checks, and docs.",
+        "contradiction_searched": true,
+        "evidence_ids": [
+          "ev-bf88eb427ca73f65d7210a5e",
+          "ev-f14f5479177804b804ddf2d9",
+          "ev-efb1bdb812833d7c58808d3c"
+        ],
+        "limits": "No broader product docs beyond this fixture were checked.",
+        "reasoning_summary": "The implementation allows csv and json for all eligible accounts, and adds pdf for enterprise accounts with beta_pdf_exports. Checks cover pro JSON exports and enterprise beta PDF exports. Docs explicitly say older CSV-only wording is stale for JSON and beta PDF exports.",
+        "safer_wording": "Customer exports support CSV and JSON; enterprise beta PDF exports are also available when enabled.",
+        "status": "contradicted"
+      },
+      "risk": "medium",
+      "stable_id": "claim-001",
+      "stable_id_scope": "0ab51e7cf5aaeeb8",
+      "status": "contradicted",
+      "text": "Customer exports are CSV-only.",
+      "usage": {
+        "files": 1,
+        "reference_depth": 0,
+        "searches": 0,
+        "snippets": 1
+      }
+    },
+    {
+      "absolute_language": [
+        "all"
+      ],
+      "assumptions": [],
+      "claim_type": "business_rule",
+      "entities": [],
+      "expected_outcome": null,
+      "id": "C2",
+      "judgment": {
+        "claim_id": "C2",
+        "contradiction_notes": "Legal-hold accounts are explicitly blocked; no evidence defines every paid plan as export-eligible.",
+        "contradiction_searched": true,
+        "evidence_ids": [
+          "ev-4125771f423c7708e43fe89b",
+          "ev-b66c4c302b46704a9085c6d7",
+          "ev-efb1bdb812833d7c58808d3c"
+        ],
+        "limits": "The fixture does not define a complete paid-plan taxonomy beyond pro and enterprise examples.",
+        "reasoning_summary": "The implementation allows customer exports for pro and enterprise accounts, but only when the account is not on legal hold. The phrase all paid accounts is broader than the code evidence and ignores the legal-hold exclusion.",
+        "safer_wording": "Customer exports are available to pro and enterprise accounts unless the account is on legal hold.",
+        "status": "uncertain"
+      },
+      "risk": "medium",
+      "stable_id": "claim-002",
+      "stable_id_scope": "0ab51e7cf5aaeeb8",
+      "status": "uncertain",
+      "text": "Customer exports are available to all paid accounts.",
+      "usage": {
+        "files": 2,
+        "reference_depth": 2,
+        "searches": 2,
+        "snippets": 2
+      }
+    },
+    {
+      "absolute_language": [
+        "never"
+      ],
+      "assumptions": [],
+      "claim_type": "behavior",
+      "entities": [],
+      "expected_outcome": null,
+      "id": "C3",
+      "judgment": {
+        "claim_id": "C3",
+        "contradiction_notes": "Direct contradiction found in implementation and checks.",
+        "contradiction_searched": true,
+        "evidence_ids": [
+          "ev-bf88eb427ca73f65d7210a5e",
+          "ev-b66c4c302b46704a9085c6d7"
+        ],
+        "limits": "The evidence covers policy construction, not downstream export file materialization.",
+        "reasoning_summary": "The implementation includes deleted records when the account is enterprise and the request is made by an admin. Checks assert that an enterprise admin export has include_deleted set to True.",
+        "safer_wording": "Deleted records are excluded by default, but enterprise admin exports can include deleted records.",
+        "status": "contradicted"
+      },
+      "risk": "medium",
+      "stable_id": "claim-003",
+      "stable_id_scope": "0ab51e7cf5aaeeb8",
+      "status": "contradicted",
+      "text": "Customer exports never include deleted records.",
+      "usage": {
+        "files": 0,
+        "reference_depth": 2,
+        "searches": 1,
+        "snippets": 0
+      }
+    },
+    {
+      "absolute_language": [
+        "only"
+      ],
+      "assumptions": [],
+      "claim_type": "behavior",
+      "entities": [],
+      "expected_outcome": null,
+      "id": "C4",
+      "judgment": {
+        "claim_id": "C4",
+        "contradiction_notes": "Direct contradiction found in implementation, checks, and docs.",
+        "contradiction_searched": true,
+        "evidence_ids": [
+          "ev-bf88eb427ca73f65d7210a5e",
+          "ev-b66c4c302b46704a9085c6d7",
+          "ev-efb1bdb812833d7c58808d3c"
+        ],
+        "limits": "The evidence covers allowed destinations in policy, not delivery infrastructure internals.",
+        "reasoning_summary": "S3 is always an allowed destination, but verified-email accounts outside the EU can also export to email. Checks cover a verified US pro account exporting to email, and docs say S3-only wording is stale for verified-email delivery.",
+        "safer_wording": "Customer exports can go to S3; verified-email accounts outside the EU can also receive exports by email.",
+        "status": "contradicted"
+      },
+      "risk": "medium",
+      "stable_id": "claim-004",
+      "stable_id_scope": "0ab51e7cf5aaeeb8",
+      "status": "contradicted",
+      "text": "Customer exports only go to S3.",
+      "usage": {
+        "files": 0,
+        "reference_depth": 2,
+        "searches": 1,
+        "snippets": 0
+      }
+    }
+  ],
+  "created_at": "2026-06-23T03:43:59.143159+00:00",
+  "evidence": [
+    {
+      "cache_hit": true,
+      "cache_key": "bf88eb427ca73f65d7210a5eab1ca99a894112f065bc3cda5266bc9d4ecf0d04",
+      "claim_id": "C1",
+      "claim_ids": [
+        "C1",
+        "C3",
+        "C4"
+      ],
+      "end_line": 56,
+      "evidence_category": "main implementation path",
+      "excerpt": "from dataclasses import dataclass\n\n\n@dataclass\nclass Account:\n    plan: str\n    region: str = \"us\"\n    beta_pdf_exports: bool = False\n    legal_hold: bool = False\n    verified_email: bool = False\n\n\ndef allowed_export_formats(account: Account) -> set[str]:\n    formats = {\"csv\", \"json\"}\n    if account.beta_pdf_exports and account.plan == \"enterprise\":\n        formats.add(\"pdf\")\n    return formats\n\n\ndef can_export_customer_records(account: Account) -> bool:\n    return account.plan in {\"pro\", \"enterprise\"} and not account.legal_hold\n\n\ndef allowed_destinations(account: Account) -> set[str]:\n    destinations = {\"s3\"}\n    if account.verified_email and account.region != \"eu\":\n        destinations.add(\"email\")\n    return destinations\n\n\ndef include_deleted_records(account: Account, *, requested_by_admin: bool) -> bool:\n    return account.plan == \"enterprise\" and requested_by_admin\n\n\ndef build_export_job(\n    account: Account,\n    *,\n    requested_format: str,\n    destination: str,\n    requested_by_admin: bool = False,\n) -> dict[str, object]:\n    if not can_export_customer_records(account):\n        raise PermissionError(\"account is not eligible for customer exports\")\n    if requested_format not in allowed_export_formats(account):\n        raise ValueError(\"unsupported export format\")\n    if destination not in allowed_destinations(account):\n        raise ValueError(\"unsupported export destination\")\n\n    return {\n        \"format\": requested_format,\n        \"destination\": destination,\n        \"include_deleted\": include_deleted_records(\n            account,\n            requested_by_admin=requested_by_admin,\n        ),\n    }",
+      "excerpt_returned": true,
+      "file": "app/export_policy.py",
+      "id": "ev-bf88eb427ca73f65d7210a5e",
+      "sha256": "2df205ba4283c2aefc25973161ddca1e9fb75d5b5c75575015bdbd75972ab15b",
+      "start_line": 1,
+      "summary": "Export policy implementation including allowed formats, destinations, include-deleted logic, and job creation."
+    },
+    {
+      "cache_hit": true,
+      "cache_key": "f14f5479177804b804ddf2d995b364f753adc35c420ddb8072e9611bbf2d87b4",
+      "claim_id": "C1",
+      "claim_ids": [
+        "C1"
+      ],
+      "end_line": 56,
+      "evidence_category": "tests",
+      "excerpt": "from app.export_policy import Account, build_export_job\n\n\ndef pro_accounts_can_export_json_to_s3():\n    job = build_export_job(\n        Account(plan=\"pro\"),\n        requested_format=\"json\",\n        destination=\"s3\",\n    )\n\n    assert job[\"format\"] == \"json\"\n    assert job[\"include_deleted\"] is False\n\n\ndef enterprise_beta_accounts_can_export_pdf():\n    job = build_export_job(\n        Account(plan=\"enterprise\", beta_pdf_exports=True),\n        requested_format=\"pdf\",\n        destination=\"s3\",\n    )\n\n    assert job[\"format\"] == \"pdf\"\n\n\ndef verified_non_eu_accounts_can_export_to_email():\n    job = build_export_job(\n        Account(plan=\"pro\", region=\"us\", verified_email=True),\n        requested_format=\"csv\",\n        destination=\"email\",\n    )\n\n    assert job[\"destination\"] == \"email\"\n\n\ndef enterprise_admin_export_can_include_deleted_records():\n    job = build_export_job(\n        Account(plan=\"enterprise\"),\n        requested_format=\"csv\",\n        destination=\"s3\",\n        requested_by_admin=True,\n    )\n\n    assert job[\"include_deleted\"] is True\n\n\ndef legal_hold_blocks_exports():\n    try:\n        build_export_job(\n            Account(plan=\"enterprise\", legal_hold=True),\n            requested_format=\"csv\",\n            destination=\"s3\",\n        )\n    except PermissionError:\n        return\n\n    raise AssertionError(\"legal hold should block customer exports\")",
+      "excerpt_returned": true,
+      "file": "checks/export_policy_checks.py",
+      "id": "ev-f14f5479177804b804ddf2d9",
+      "sha256": "e103d653cc8cfbf6c8d591b6c56741753ab9d4935dcbd506262fc486badf2191",
+      "start_line": 1,
+      "summary": "Policy checks exercise JSON/CSV formats, destinations, and deleted-record handling."
+    },
+    {
+      "cache_hit": false,
+      "cache_key": "4125771f423c7708e43fe89b87a9ea0f59abd75b66f75f326b8b0704c896eabf",
+      "claim_id": "C2",
+      "claim_ids": [
+        "C2"
+      ],
+      "end_line": 56,
+      "evidence_category": "main implementation path",
+      "excerpt": "from dataclasses import dataclass\n\n\n@dataclass\nclass Account:\n    plan: str\n    region: str = \"us\"\n    beta_pdf_exports: bool = False\n    legal_hold: bool = False\n    verified_email: bool = False\n\n\ndef allowed_export_formats(account: Account) -> set[str]:\n    formats = {\"csv\", \"json\"}\n    if account.beta_pdf_exports and account.plan == \"enterprise\":\n        formats.add(\"pdf\")\n    return formats\n\n\ndef can_export_customer_records(account: Account) -> bool:\n    return account.plan in {\"pro\", \"enterprise\"} and not account.legal_hold\n\n\ndef allowed_destinations(account: Account) -> set[str]:\n    destinations = {\"s3\"}\n    if account.verified_email and account.region != \"eu\":\n        destinations.add(\"email\")\n    return destinations\n\n\ndef include_deleted_records(account: Account, *, requested_by_admin: bool) -> bool:\n    return account.plan == \"enterprise\" and requested_by_admin\n\n\ndef build_export_job(\n    account: Account,\n    *,\n    requested_format: str,\n    destination: str,\n    requested_by_admin: bool = False,\n) -> dict[str, object]:\n    if not can_export_customer_records(account):\n        raise PermissionError(\"account is not eligible for customer exports\")\n    if requested_format not in allowed_export_formats(account):\n        raise ValueError(\"unsupported export format\")\n    if destination not in allowed_destinations(account):\n        raise ValueError(\"unsupported export destination\")\n\n    return {\n        \"format\": requested_format,\n        \"destination\": destination,\n        \"include_deleted\": include_deleted_records(\n            account,\n            requested_by_admin=requested_by_admin,\n        ),\n    }",
+      "excerpt_returned": true,
+      "file": "app/export_policy.py",
+      "id": "ev-4125771f423c7708e43fe89b",
+      "sha256": "2df205ba4283c2aefc25973161ddca1e9fb75d5b5c75575015bdbd75972ab15b",
+      "start_line": 1,
+      "summary": "Export policy shows account eligibility depends on plan in pro/enterprise and excludes legal hold."
+    },
+    {
+      "cache_hit": false,
+      "cache_key": "b66c4c302b46704a9085c6d787238e820b94fe374da3ed8a677dab4e7dc47a74",
+      "claim_id": "C2",
+      "claim_ids": [
+        "C2",
+        "C3",
+        "C4"
+      ],
+      "end_line": 56,
+      "evidence_category": "tests",
+      "excerpt": "from app.export_policy import Account, build_export_job\n\n\ndef pro_accounts_can_export_json_to_s3():\n    job = build_export_job(\n        Account(plan=\"pro\"),\n        requested_format=\"json\",\n        destination=\"s3\",\n    )\n\n    assert job[\"format\"] == \"json\"\n    assert job[\"include_deleted\"] is False\n\n\ndef enterprise_beta_accounts_can_export_pdf():\n    job = build_export_job(\n        Account(plan=\"enterprise\", beta_pdf_exports=True),\n        requested_format=\"pdf\",\n        destination=\"s3\",\n    )\n\n    assert job[\"format\"] == \"pdf\"\n\n\ndef verified_non_eu_accounts_can_export_to_email():\n    job = build_export_job(\n        Account(plan=\"pro\", region=\"us\", verified_email=True),\n        requested_format=\"csv\",\n        destination=\"email\",\n    )\n\n    assert job[\"destination\"] == \"email\"\n\n\ndef enterprise_admin_export_can_include_deleted_records():\n    job = build_export_job(\n        Account(plan=\"enterprise\"),\n        requested_format=\"csv\",\n        destination=\"s3\",\n        requested_by_admin=True,\n    )\n\n    assert job[\"include_deleted\"] is True\n\n\ndef legal_hold_blocks_exports():\n    try:\n        build_export_job(\n            Account(plan=\"enterprise\", legal_hold=True),\n            requested_format=\"csv\",\n            destination=\"s3\",\n        )\n    except PermissionError:\n        return\n\n    raise AssertionError(\"legal hold should block customer exports\")",
+      "excerpt_returned": true,
+      "file": "checks/export_policy_checks.py",
+      "id": "ev-b66c4c302b46704a9085c6d7",
+      "sha256": "e103d653cc8cfbf6c8d591b6c56741753ab9d4935dcbd506262fc486badf2191",
+      "start_line": 1,
+      "summary": "Checks cover pro and enterprise export cases and legal-hold blocking."
+    },
+    {
+      "cache_hit": false,
+      "cache_key": "efb1bdb812833d7c58808d3c9e051764d7691bca354b40a2caa65145a9245dcf",
+      "claim_id": "C1",
+      "claim_ids": [
+        "C1",
+        "C4",
+        "C2",
+        "C3"
+      ],
+      "end_line": 8,
+      "evidence_category": "docs",
+      "excerpt": "# Customer Exports\n\nSupport can tell customers to use CSV exports for most account reviews.\n\nOlder help-center copy says exports are CSV-only and S3-only. That copy is\nstale for beta PDF exports, JSON exports, and verified-email delivery.\n\nLegal hold accounts must not export customer records until the hold is removed.",
+      "excerpt_returned": true,
+      "file": "docs/customer-exports.md",
+      "id": "ev-efb1bdb812833d7c58808d3c",
+      "sha256": "62c59957eedef7993ccb4023ff73a11fdc9819e6eea7d6782d45e6c3cac4b360",
+      "start_line": 1,
+      "summary": "Customer export documentation note says the legacy CSV-only/S3-only wording is stale for JSON, beta PDF, and verified-email delivery."
+    }
+  ],
+  "measurement": {
+    "cache": {
+      "evidence_hit_rate_percent": 40,
+      "evidence_hits": 2,
+      "evidence_misses": 3,
+      "evidence_reuses": 7,
+      "search_hit_rate_percent": 67,
+      "search_hits": 8,
+      "search_misses": 4,
+      "source_text_chars_returned": 13296
+    },
+    "claim_status_counts": {
+      "contradicted": 3,
+      "uncertain": 1
+    },
+    "claims_total": 4,
+    "contradiction_passes": 4,
+    "evidence_files_read": 3,
+    "evidence_snippets_read": 3,
+    "judged_claims": 4,
+    "matched_files": 3,
+    "search_matches_returned": 39,
+    "search_traces_recorded": 12,
+    "searches_run": 4,
+    "source_text_chars_returned": 13296,
+    "source_text_estimated_tokens_returned": 3324,
+    "token_estimate": {
+      "bounded_vs_full_cited_files_token_reduction_percent": 0,
+      "bounded_vs_full_matched_files_token_reduction_percent": 0,
+      "full_cited_files_chars": 3327,
+      "full_cited_files_estimated_tokens": 832,
+      "full_matched_files_chars": 3327,
+      "full_matched_files_estimated_tokens": 832,
+      "method": "estimated_tokens = ceil(characters / 4); source-text comparison only, not provider billing",
+      "returned_evidence_chars": 6329,
+      "returned_evidence_estimated_tokens": 1583,
+      "search_preview_chars": 1471,
+      "search_preview_estimated_tokens": 368
+    },
+    "too_broad_claims": 0,
+    "unique_evidence_files": 3,
+    "unsupported_or_qualified_claims": 4
+  },
+  "mode": "explanation",
+  "quality": {
+    "answer_gate": {
+      "can_answer": false,
+      "label": "Do not claim as written",
+      "status": "do_not_claim",
+      "summary": "At least one claim is contradicted by source evidence."
+    },
+    "broad_claims": [
+      {
+        "claim_id": "C1",
+        "contradiction_notes": "Direct contradiction found in implementation, checks, and docs.",
+        "requires_strict_support": false,
+        "status": "contradicted",
+        "terms": [
+          "only"
+        ],
+        "text": "Customer exports are CSV-only."
+      },
+      {
+        "claim_id": "C2",
+        "contradiction_notes": "Legal-hold accounts are explicitly blocked; no evidence defines every paid plan as export-eligible.",
+        "requires_strict_support": false,
+        "status": "uncertain",
+        "terms": [
+          "all"
+        ],
+        "text": "Customer exports are available to all paid accounts."
+      },
+      {
+        "claim_id": "C3",
+        "contradiction_notes": "Direct contradiction found in implementation and checks.",
+        "requires_strict_support": false,
+        "status": "contradicted",
+        "terms": [
+          "never"
+        ],
+        "text": "Customer exports never include deleted records."
+      },
+      {
+        "claim_id": "C4",
+        "contradiction_notes": "Direct contradiction found in implementation, checks, and docs.",
+        "requires_strict_support": false,
+        "status": "contradicted",
+        "terms": [
+          "only"
+        ],
+        "text": "Customer exports only go to S3."
+      }
+    ],
+    "checked": [
+      "Claims recorded",
+      "Claims judged",
+      "Supported claims cite evidence",
+      "Supported claims have contradiction passes",
+      "Supported broad claims explain broad-language coverage",
+      "Required claim type: behavior",
+      "Required claim type: business_rule",
+      "Evidence category: main implementation path",
+      "Evidence category: docs"
+    ],
+    "checklist": {
+      "checks": [
+        {
+          "completed": 4,
+          "key": "claims_recorded",
+          "label": "Claims recorded",
+          "missing": [],
+          "passed": true,
+          "total": 4
+        },
+        {
+          "completed": 4,
+          "key": "claims_judged",
+          "label": "Claims judged",
+          "missing": [],
+          "passed": true,
+          "total": 4
+        },
+        {
+          "completed": 0,
+          "key": "supported_claims_have_evidence",
+          "label": "Supported claims cite evidence",
+          "missing": [],
+          "passed": true,
+          "total": 0
+        },
+        {
+          "completed": 0,
+          "key": "supported_claims_have_contradiction_pass",
+          "label": "Supported claims have contradiction passes",
+          "missing": [],
+          "passed": true,
+          "total": 0
+        },
+        {
+          "completed": 0,
+          "key": "broad_supported_claims_have_contradiction_notes",
+          "label": "Supported broad claims explain broad-language coverage",
+          "missing": [],
+          "passed": true,
+          "total": 0
+        },
+        {
+          "completed": 0,
+          "key": "required_claim_type:definition",
+          "label": "Required claim type: definition",
+          "missing": [
+            "definition"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 1,
+          "key": "required_claim_type:behavior",
+          "label": "Required claim type: behavior",
+          "missing": [],
+          "passed": true,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "required_claim_type:api",
+          "label": "Required claim type: api",
+          "missing": [
+            "api"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 1,
+          "key": "required_claim_type:business_rule",
+          "label": "Required claim type: business_rule",
+          "missing": [],
+          "passed": true,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "required_search:{flow_name}",
+          "label": "Required search: {flow_name}",
+          "missing": [
+            "{flow_name}"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "required_search:{entry_point}",
+          "label": "Required search: {entry_point}",
+          "missing": [
+            "{entry_point}"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "required_search:{main_entity}",
+          "label": "Required search: {main_entity}",
+          "missing": [
+            "{main_entity}"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "required_search:{external_system}",
+          "label": "Required search: {external_system}",
+          "missing": [
+            "{external_system}"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "contradiction_search:{flow_name} test",
+          "label": "Contradiction search: {flow_name} test",
+          "missing": [
+            "{flow_name} test"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "contradiction_search:{flow_name} error",
+          "label": "Contradiction search: {flow_name} error",
+          "missing": [
+            "{flow_name} error"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "contradiction_search:{entry_point} disabled",
+          "label": "Contradiction search: {entry_point} disabled",
+          "missing": [
+            "{entry_point} disabled"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "contradiction_search:{external_system} mock",
+          "label": "Contradiction search: {external_system} mock",
+          "missing": [
+            "{external_system} mock"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "evidence_category:entry point",
+          "label": "Evidence category: entry point",
+          "missing": [
+            "entry point"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 1,
+          "key": "evidence_category:main implementation path",
+          "label": "Evidence category: main implementation path",
+          "missing": [],
+          "passed": true,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "evidence_category:data inputs",
+          "label": "Evidence category: data inputs",
+          "missing": [
+            "data inputs"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "evidence_category:data outputs",
+          "label": "Evidence category: data outputs",
+          "missing": [
+            "data outputs"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "evidence_category:external calls",
+          "label": "Evidence category: external calls",
+          "missing": [
+            "external calls"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "evidence_category:failure handling",
+          "label": "Evidence category: failure handling",
+          "missing": [
+            "failure handling"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 0,
+          "key": "evidence_category:tests",
+          "label": "Evidence category: tests",
+          "missing": [
+            "tests"
+          ],
+          "passed": false,
+          "total": 1
+        },
+        {
+          "completed": 1,
+          "key": "evidence_category:docs",
+          "label": "Evidence category: docs",
+          "missing": [],
+          "passed": true,
+          "total": 1
+        }
+      ],
+      "contradiction_searches": [
+        {
+          "literal_tokens": [],
+          "matched_queries": [],
+          "missing_placeholders": [
+            "flow_name"
+          ],
+          "not_applicable_placeholders": [],
+          "passed": false,
+          "pattern": "{flow_name} test",
+          "require_matches": false,
+          "resolved_pattern": "{flow_name} test",
+          "skipped": false
+        },
+        {
+          "literal_tokens": [],
+          "matched_queries": [],
+          "missing_placeholders": [
+            "flow_name"
+          ],
+          "not_applicable_placeholders": [],
+          "passed": false,
+          "pattern": "{flow_name} error",
+          "require_matches": false,
+          "resolved_pattern": "{flow_name} error",
+          "skipped": false
+        },
+        {
+          "literal_tokens": [],
+          "matched_queries": [],
+          "missing_placeholders": [
+            "entry_point"
+          ],
+          "not_applicable_placeholders": [],
+          "passed": false,
+          "pattern": "{entry_point} disabled",
+          "require_matches": false,
+          "resolved_pattern": "{entry_point} disabled",
+          "skipped": false
+        },
+        {
+          "literal_tokens": [],
+          "matched_queries": [],
+          "missing_placeholders": [
+            "external_system"
+          ],
+          "not_applicable_placeholders": [],
+          "passed": false,
+          "pattern": "{external_system} mock",
+          "require_matches": false,
+          "resolved_pattern": "{external_system} mock",
+          "skipped": false
+        }
+      ],
+      "evidence_categories": [
+        {
+          "category": "entry point",
+          "passed": false
+        },
+        {
+          "category": "main implementation path",
+          "passed": true
+        },
+        {
+          "category": "data inputs",
+          "passed": false
+        },
+        {
+          "category": "data outputs",
+          "passed": false
+        },
+        {
+          "category": "external calls",
+          "passed": false
+        },
+        {
+          "category": "failure handling",
+          "passed": false
+        },
+        {
+          "category": "tests",
+          "passed": false
+        },
+        {
+          "category": "docs",
+          "passed": true
+        }
+      ],
+      "required_claim_types": [
+        {
+          "claim_type": "definition",
+          "passed": false
+        },
+        {
+          "claim_type": "behavior",
+          "passed": true
+        },
+        {
+          "claim_type": "api",
+          "passed": false
+        },
+        {
+          "claim_type": "business_rule",
+          "passed": true
+        }
+      ],
+      "required_searches": [
+        {
+          "literal_tokens": [],
+          "matched_queries": [],
+          "missing_placeholders": [
+            "flow_name"
+          ],
+          "not_applicable_placeholders": [],
+          "passed": false,
+          "pattern": "{flow_name}",
+          "require_matches": true,
+          "resolved_pattern": "{flow_name}",
+          "skipped": false
+        },
+        {
+          "literal_tokens": [],
+          "matched_queries": [],
+          "missing_placeholders": [
+            "entry_point"
+          ],
+          "not_applicable_placeholders": [],
+          "passed": false,
+          "pattern": "{entry_point}",
+          "require_matches": true,
+          "resolved_pattern": "{entry_point}",
+          "skipped": false
+        },
+        {
+          "literal_tokens": [],
+          "matched_queries": [],
+          "missing_placeholders": [
+            "main_entity"
+          ],
+          "not_applicable_placeholders": [],
+          "passed": false,
+          "pattern": "{main_entity}",
+          "require_matches": true,
+          "resolved_pattern": "{main_entity}",
+          "skipped": false
+        },
+        {
+          "literal_tokens": [],
+          "matched_queries": [],
+          "missing_placeholders": [
+            "external_system"
+          ],
+          "not_applicable_placeholders": [],
+          "passed": false,
+          "pattern": "{external_system}",
+          "require_matches": true,
+          "resolved_pattern": "{external_system}",
+          "skipped": false
+        }
+      ]
+    },
+    "checks_passed": 9,
+    "checks_total": 25,
+    "gate_coverage": {
+      "budget_exhausted_claims": [],
+      "missing": [],
+      "missing_by_claim": {},
+      "supported_claims_missing_contradiction_searches": [],
+      "supported_claims_missing_evidence_categories": [],
+      "supported_claims_missing_required_claim_types": [],
+      "supported_claims_missing_required_searches": []
+    },
+    "grade": "incomplete",
+    "next_checks": [
+      "Provide template value(s) for flow_name before checking required search: {flow_name}.",
+      "Provide template value(s) for entry_point before checking required search: {entry_point}.",
+      "Provide template value(s) for main_entity before checking required search: {main_entity}.",
+      "Provide template value(s) for external_system before checking required search: {external_system}.",
+      "Provide template value(s) for flow_name before checking contradiction search: {flow_name} test.",
+      "Provide template value(s) for flow_name before checking contradiction search: {flow_name} error.",
+      "Provide template value(s) for entry_point before checking contradiction search: {entry_point} disabled.",
+      "Provide template value(s) for external_system before checking contradiction search: {external_system} mock.",
+      "Read evidence for required category: entry point.",
+      "Read evidence for required category: data inputs.",
+      "Read evidence for required category: data outputs.",
+      "Read evidence for required category: external calls."
+    ],
+    "not_checked": [
+      "Required claim type: definition",
+      "Required claim type: api",
+      "Required search: {flow_name}",
+      "Required search: {entry_point}",
+      "Required search: {main_entity}",
+      "Required search: {external_system}",
+      "Contradiction search: {flow_name} test",
+      "Contradiction search: {flow_name} error",
+      "Contradiction search: {entry_point} disabled",
+      "Contradiction search: {external_system} mock",
+      "Evidence category: entry point",
+      "Evidence category: data inputs",
+      "Evidence category: data outputs",
+      "Evidence category: external calls",
+      "Evidence category: failure handling",
+      "Evidence category: tests"
+    ],
+    "safe_answer": {
+      "avoid": [
+        {
+          "claim_id": "C1",
+          "limits": "No broader product docs beyond this fixture were checked.",
+          "safer_wording": "Customer exports support CSV and JSON; enterprise beta PDF exports are also available when enabled.",
+          "status": "contradicted",
+          "text": "Customer exports are CSV-only."
+        },
+        {
+          "claim_id": "C3",
+          "limits": "The evidence covers policy construction, not downstream export file materialization.",
+          "safer_wording": "Deleted records are excluded by default, but enterprise admin exports can include deleted records.",
+          "status": "contradicted",
+          "text": "Customer exports never include deleted records."
+        },
+        {
+          "claim_id": "C4",
+          "limits": "The evidence covers allowed destinations in policy, not delivery infrastructure internals.",
+          "safer_wording": "Customer exports can go to S3; verified-email accounts outside the EU can also receive exports by email.",
+          "status": "contradicted",
+          "text": "Customer exports only go to S3."
+        }
+      ],
+      "qualified": [
+        {
+          "claim_id": "C2",
+          "limits": "The fixture does not define a complete paid-plan taxonomy beyond pro and enterprise examples.",
+          "safer_wording": "Customer exports are available to pro and enterprise accounts unless the account is on legal hold.",
+          "status": "uncertain",
+          "text": "Customer exports are available to all paid accounts."
+        }
+      ],
+      "supported": []
+    },
+    "score": 36,
+    "summary": "9/25 observable verification check(s) complete."
+  },
+  "question": "Support wants to say customer exports are CSV-only, available to all paid accounts, never include deleted records, and only go to S3. Check that before we update the help center.",
+  "report_identity": {
+    "id": "0ab51e7cf5aaeeb8",
+    "mode": "explanation",
+    "question": "support wants to say customer exports are csv-only, available to all paid accounts, never include deleted records, and only go to s3. check that before we update the help center.",
+    "repo_identifier": "d1b9d881056a3165",
+    "repo_state": "d2ea930dc46c723fc3569d664935c6f7cc0a41c65d60ab3ddbea43226739f7b4",
+    "template_id": "explain_flow"
+  },
+  "scenario": null,
+  "session_id": "17b5e485-a8b4-451a-a855-da1a290366f6",
+  "template": {
+    "budgets": {
+      "deep": {
+        "files_per_claim": 12,
+        "max_claims": 16,
+        "reference_depth": 3,
+        "searches_per_claim": 10,
+        "snippets_per_claim": 20
+      },
+      "fast": {
+        "files_per_claim": 4,
+        "max_claims": 5,
+        "reference_depth": 1,
+        "searches_per_claim": 4,
+        "snippets_per_claim": 6
+      },
+      "normal": {
+        "files_per_claim": 6,
+        "max_claims": 8,
+        "reference_depth": 2,
+        "searches_per_claim": 6,
+        "snippets_per_claim": 10
+      }
+    },
+    "contradiction_searches": [
+      "{flow_name} test",
+      "{flow_name} error",
+      "{entry_point} disabled",
+      "{external_system} mock"
+    ],
+    "description": "Explain how a workflow or integration currently behaves from source evidence.",
+    "evidence_categories": [
+      "entry point",
+      "main implementation path",
+      "data inputs",
+      "data outputs",
+      "external calls",
+      "failure handling",
+      "tests",
+      "docs"
+    ],
+    "id": "explain_flow",
+    "modes": [
+      "explanation"
+    ],
+    "name": "Explain flow",
+    "report_sections": [
+      "short flow summary",
+      "source-backed path",
+      "inputs and outputs",
+      "failure modes",
+      "open uncertainties",
+      "files worth reading next"
+    ],
+    "required_claim_types": [
+      "definition",
+      "behavior",
+      "api",
+      "business_rule"
+    ],
+    "required_searches": [
+      "{flow_name}",
+      "{entry_point}",
+      "{main_entity}",
+      "{external_system}"
+    ],
+    "source": "builtin:explain_flow.toml",
+    "unchecked_area_prompts": [
+      "Did the search find the entry point?",
+      "Were failure and retry paths checked?",
+      "Were tests or docs found for this flow?"
+    ],
+    "version": "1.0"
+  },
+  "template_values": {},
+  "trace": [
+    {
+      "budget_exhausted": false,
+      "cache_hit": true,
+      "cache_key": "4ad3ac50555b1f17e0c40a95b2faab14d404682f933d0c2690480ee20012a227",
+      "claim_id": "C1",
+      "command": [
+        "rg",
+        "--line-number",
+        "--fixed-strings",
+        "--color",
+        "never",
+        "--max-count",
+        "10",
+        "--glob",
+        "!.git/**",
+        "--glob",
+        "!.venv/**",
+        "--glob",
+        "!node_modules/**",
+        "--glob",
+        "!.cache/**",
+        "--",
+        "customer export csv format",
+        "/Users/facundotaboada/Documents/GitHub/plumbref/examples/fixtures/customer-exports"
+      ],
+      "elapsed_ms": 68,
+      "matched_files": [],
+      "matches": [],
+      "query": "customer export csv format",
+      "truncated": false
+    },
+    {
+      "budget_exhausted": false,
+      "cache_hit": false,
+      "cache_key": "6c48e5ba45d8e9d5b7faf0a3fc30aca2822164743101622d9477aa91bba2d9a9",
+      "claim_id": "C2",
+      "command": [
+        "rg",
+        "--line-number",
+        "--fixed-strings",
+        "--color",
+        "never",
+        "--max-count",
+        "10",
+        "--glob",
+        "!.git/**",
+        "--glob",
+        "!.venv/**",
+        "--glob",
+        "!node_modules/**",
+        "--glob",
+        "!.cache/**",
+        "--",
+        "paid account export plan tier",
+        "/Users/facundotaboada/Documents/GitHub/plumbref/examples/fixtures/customer-exports"
+      ],
+      "elapsed_ms": 63,
+      "matched_files": [],
+      "matches": [],
+      "query": "paid account export plan tier",
+      "truncated": false
+    },
+    {
+      "budget_exhausted": false,
+      "cache_hit": false,
+      "cache_key": "664ac4682e9826459ecd0e282d915e235d07484a4a46ed121a800bf178934614",
+      "claim_id": "C3",
+      "command": [
+        "rg",
+        "--line-number",
+        "--fixed-strings",
+        "--color",
+        "never",
+        "--max-count",
+        "10",
+        "--glob",
+        "!.git/**",
+        "--glob",
+        "!.venv/**",
+        "--glob",
+        "!node_modules/**",
+        "--glob",
+        "!.cache/**",
+        "--",
+        "deleted records export include deleted",
+        "/Users/facundotaboada/Documents/GitHub/plumbref/examples/fixtures/customer-exports"
+      ],
+      "elapsed_ms": 39,
+      "matched_files": [],
+      "matches": [],
+      "query": "deleted records export include deleted",
+      "truncated": false
+    },
+    {
+      "budget_exhausted": false,
+      "cache_hit": false,
+      "cache_key": "01fc9309f42e487b5d33b8f7b5277d162658bb0281d3615714bdc7a198ddc45a",
+      "claim_id": "C4",
+      "command": [
+        "rg",
+        "--line-number",
+        "--fixed-strings",
+        "--color",
+        "never",
+        "--max-count",
+        "10",
+        "--glob",
+        "!.git/**",
+        "--glob",
+        "!.venv/**",
+        "--glob",
+        "!node_modules/**",
+        "--glob",
+        "!.cache/**",
+        "--",
+        "customer export S3 destination",
+        "/Users/facundotaboada/Documents/GitHub/plumbref/examples/fixtures/customer-exports"
+      ],
+      "elapsed_ms": 36,
+      "matched_files": [],
+      "matches": [],
+      "query": "customer export S3 destination",
+      "truncated": false
+    },
+    {
+      "budget_exhausted": false,
+      "cache_hit": true,
+      "cache_key": "0d4b14e42ba7d34f0e189f624666f203ef6d7ed2a38280140eb41c55b0a46974",
+      "claim_id": "C1",
+      "command": [
+        "rg",
+        "--line-number",
+        "--fixed-strings",
+        "--color",
+        "never",
+        "--max-count",
+        "20",
+        "--glob",
+        "!.git/**",
+        "--glob",
+        "!.venv/**",
+        "--glob",
+        "!node_modules/**",
+        "--glob",
+        "!.cache/**",
+        "--",
+        "csv",
+        "/Users/facundotaboada/Documents/GitHub/plumbref/examples/fixtures/customer-exports"
+      ],
+      "elapsed_ms": 58,
+      "matched_files": [
+        "checks/export_policy_checks.py",
+        "app/export_policy.py"
+      ],
+      "matches": [
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 28,
+          "preview": "requested_format=\"csv\","
+        },
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 38,
+          "preview": "requested_format=\"csv\","
+        },
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 50,
+          "preview": "requested_format=\"csv\","
+        },
+        {
+          "file": "app/export_policy.py",
+          "line": 14,
+          "preview": "formats = {\"csv\", \"json\"}"
+        }
+      ],
+      "query": "csv",
+      "truncated": false
+    },
+    {
+      "budget_exhausted": false,
+      "cache_hit": true,
+      "cache_key": "52dcc019d65ad48b0b2c13baf8730529582176997a7149610be662b93a6f90ac",
+      "claim_id": "C2",
+      "command": [
+        "rg",
+        "--line-number",
+        "--fixed-strings",
+        "--color",
+        "never",
+        "--max-count",
+        "20",
+        "--glob",
+        "!.git/**",
+        "--glob",
+        "!.venv/**",
+        "--glob",
+        "!node_modules/**",
+        "--glob",
+        "!.cache/**",
+        "--",
+        "paid",
+        "/Users/facundotaboada/Documents/GitHub/plumbref/examples/fixtures/customer-exports"
+      ],
+      "elapsed_ms": 59,
+      "matched_files": [],
+      "matches": [],
+      "query": "paid",
+      "truncated": false
+    },
+    {
+      "budget_exhausted": false,
+      "cache_hit": true,
+      "cache_key": "106fcd81dc9285064e57ed74f80740d1657881a35e635677e3a1327aaae67baa",
+      "claim_id": "C3",
+      "command": [
+        "rg",
+        "--line-number",
+        "--fixed-strings",
+        "--color",
+        "never",
+        "--max-count",
+        "20",
+        "--glob",
+        "!.git/**",
+        "--glob",
+        "!.venv/**",
+        "--glob",
+        "!node_modules/**",
+        "--glob",
+        "!.cache/**",
+        "--",
+        "deleted",
+        "/Users/facundotaboada/Documents/GitHub/plumbref/examples/fixtures/customer-exports"
+      ],
+      "elapsed_ms": 64,
+      "matched_files": [
+        "checks/export_policy_checks.py",
+        "app/export_policy.py"
+      ],
+      "matches": [
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 12,
+          "preview": "assert job[\"include_deleted\"] is False"
+        },
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 35,
+          "preview": "def enterprise_admin_export_can_include_deleted_records():"
+        },
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 43,
+          "preview": "assert job[\"include_deleted\"] is True"
+        },
+        {
+          "file": "app/export_policy.py",
+          "line": 31,
+          "preview": "def include_deleted_records(account: Account, *, requested_by_admin: bool) -> bool:"
+        },
+        {
+          "file": "app/export_policy.py",
+          "line": 52,
+          "preview": "\"include_deleted\": include_deleted_records("
+        }
+      ],
+      "query": "deleted",
+      "truncated": false
+    },
+    {
+      "budget_exhausted": false,
+      "cache_hit": true,
+      "cache_key": "7148b7e626c9c64c9d4f1179c24bb13c6ec339548a2e05f5cd6281a10c82e431",
+      "claim_id": "C4",
+      "command": [
+        "rg",
+        "--line-number",
+        "--fixed-strings",
+        "--color",
+        "never",
+        "--max-count",
+        "20",
+        "--glob",
+        "!.git/**",
+        "--glob",
+        "!.venv/**",
+        "--glob",
+        "!node_modules/**",
+        "--glob",
+        "!.cache/**",
+        "--",
+        "s3",
+        "/Users/facundotaboada/Documents/GitHub/plumbref/examples/fixtures/customer-exports"
+      ],
+      "elapsed_ms": 57,
+      "matched_files": [
+        "checks/export_policy_checks.py",
+        "app/export_policy.py"
+      ],
+      "matches": [
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 4,
+          "preview": "def pro_accounts_can_export_json_to_s3():"
+        },
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 8,
+          "preview": "destination=\"s3\","
+        },
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 19,
+          "preview": "destination=\"s3\","
+        },
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 39,
+          "preview": "destination=\"s3\","
+        },
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 51,
+          "preview": "destination=\"s3\","
+        },
+        {
+          "file": "app/export_policy.py",
+          "line": 25,
+          "preview": "destinations = {\"s3\"}"
+        }
+      ],
+      "query": "s3",
+      "truncated": false
+    },
+    {
+      "budget_exhausted": false,
+      "cache_hit": true,
+      "cache_key": "ee4bd419729bdc9dbeeb77daadedf29eb83a09c295163ac83497b30a0eefd443",
+      "claim_id": "C2",
+      "command": [
+        "rg",
+        "--line-number",
+        "--fixed-strings",
+        "--color",
+        "never",
+        "--max-count",
+        "20",
+        "--glob",
+        "!.git/**",
+        "--glob",
+        "!.venv/**",
+        "--glob",
+        "!node_modules/**",
+        "--glob",
+        "!.cache/**",
+        "--",
+        "plan",
+        "/Users/facundotaboada/Documents/GitHub/plumbref/examples/fixtures/customer-exports"
+      ],
+      "elapsed_ms": 53,
+      "matched_files": [
+        "checks/export_policy_checks.py",
+        "app/export_policy.py"
+      ],
+      "matches": [
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 6,
+          "preview": "Account(plan=\"pro\"),"
+        },
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 17,
+          "preview": "Account(plan=\"enterprise\", beta_pdf_exports=True),"
+        },
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 27,
+          "preview": "Account(plan=\"pro\", region=\"us\", verified_email=True),"
+        },
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 37,
+          "preview": "Account(plan=\"enterprise\"),"
+        },
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 49,
+          "preview": "Account(plan=\"enterprise\", legal_hold=True),"
+        },
+        {
+          "file": "app/export_policy.py",
+          "line": 6,
+          "preview": "plan: str"
+        },
+        {
+          "file": "app/export_policy.py",
+          "line": 15,
+          "preview": "if account.beta_pdf_exports and account.plan == \"enterprise\":"
+        },
+        {
+          "file": "app/export_policy.py",
+          "line": 21,
+          "preview": "return account.plan in {\"pro\", \"enterprise\"} and not account.legal_hold"
+        },
+        {
+          "file": "app/export_policy.py",
+          "line": 32,
+          "preview": "return account.plan == \"enterprise\" and requested_by_admin"
+        }
+      ],
+      "query": "plan",
+      "truncated": false
+    },
+    {
+      "budget_exhausted": false,
+      "cache_hit": false,
+      "cache_key": "9004fb0ae67b1caf3c9937bc3a11998ad575b1d0eea4f8dba14a1bf196020880",
+      "claim_id": "C2",
+      "command": [
+        "rg",
+        "--line-number",
+        "--fixed-strings",
+        "--color",
+        "never",
+        "--max-count",
+        "20",
+        "--glob",
+        "!.git/**",
+        "--glob",
+        "!.venv/**",
+        "--glob",
+        "!node_modules/**",
+        "--glob",
+        "!.cache/**",
+        "--",
+        "tier",
+        "/Users/facundotaboada/Documents/GitHub/plumbref/examples/fixtures/customer-exports"
+      ],
+      "elapsed_ms": 66,
+      "matched_files": [],
+      "matches": [],
+      "query": "tier",
+      "truncated": false
+    },
+    {
+      "budget_exhausted": false,
+      "cache_hit": true,
+      "cache_key": "2b16d375a34bea21ff34a5bc2dad264858e35f8077ce6d63d0875a6ec212722e",
+      "claim_id": "C4",
+      "command": [
+        "rg",
+        "--line-number",
+        "--fixed-strings",
+        "--color",
+        "never",
+        "--max-count",
+        "20",
+        "--glob",
+        "!.git/**",
+        "--glob",
+        "!.venv/**",
+        "--glob",
+        "!node_modules/**",
+        "--glob",
+        "!.cache/**",
+        "--",
+        "email",
+        "/Users/facundotaboada/Documents/GitHub/plumbref/examples/fixtures/customer-exports"
+      ],
+      "elapsed_ms": 60,
+      "matched_files": [
+        "docs/customer-exports.md",
+        "checks/export_policy_checks.py",
+        "app/export_policy.py"
+      ],
+      "matches": [
+        {
+          "file": "docs/customer-exports.md",
+          "line": 6,
+          "preview": "stale for beta PDF exports, JSON exports, and verified-email delivery."
+        },
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 25,
+          "preview": "def verified_non_eu_accounts_can_export_to_email():"
+        },
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 27,
+          "preview": "Account(plan=\"pro\", region=\"us\", verified_email=True),"
+        },
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 29,
+          "preview": "destination=\"email\","
+        },
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 32,
+          "preview": "assert job[\"destination\"] == \"email\""
+        },
+        {
+          "file": "app/export_policy.py",
+          "line": 10,
+          "preview": "verified_email: bool = False"
+        },
+        {
+          "file": "app/export_policy.py",
+          "line": 26,
+          "preview": "if account.verified_email and account.region != \"eu\":"
+        },
+        {
+          "file": "app/export_policy.py",
+          "line": 27,
+          "preview": "destinations.add(\"email\")"
+        }
+      ],
+      "query": "email",
+      "truncated": false
+    },
+    {
+      "budget_exhausted": false,
+      "cache_hit": true,
+      "cache_key": "bb3728942a853f9d3983cc993aca61365cd21a46e5862fa5d1ac4cc8d75a8619",
+      "claim_id": "C1",
+      "command": [
+        "rg",
+        "--line-number",
+        "--fixed-strings",
+        "--color",
+        "never",
+        "--max-count",
+        "20",
+        "--glob",
+        "!.git/**",
+        "--glob",
+        "!.venv/**",
+        "--glob",
+        "!node_modules/**",
+        "--glob",
+        "!.cache/**",
+        "--",
+        "pdf",
+        "/Users/facundotaboada/Documents/GitHub/plumbref/examples/fixtures/customer-exports"
+      ],
+      "elapsed_ms": 63,
+      "matched_files": [
+        "app/export_policy.py",
+        "checks/export_policy_checks.py"
+      ],
+      "matches": [
+        {
+          "file": "app/export_policy.py",
+          "line": 8,
+          "preview": "beta_pdf_exports: bool = False"
+        },
+        {
+          "file": "app/export_policy.py",
+          "line": 15,
+          "preview": "if account.beta_pdf_exports and account.plan == \"enterprise\":"
+        },
+        {
+          "file": "app/export_policy.py",
+          "line": 16,
+          "preview": "formats.add(\"pdf\")"
+        },
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 15,
+          "preview": "def enterprise_beta_accounts_can_export_pdf():"
+        },
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 17,
+          "preview": "Account(plan=\"enterprise\", beta_pdf_exports=True),"
+        },
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 18,
+          "preview": "requested_format=\"pdf\","
+        },
+        {
+          "file": "checks/export_policy_checks.py",
+          "line": 22,
+          "preview": "assert job[\"format\"] == \"pdf\""
+        }
+      ],
+      "query": "pdf",
+      "truncated": false
+    }
+  ],
+  "verdict": "Contradicted claims found"
+}
